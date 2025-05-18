@@ -1,0 +1,81 @@
+.profile-container {
+  max-width: 600px;
+  margin: 20px auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.profile-container h2 {
+  color: #2c3e50;
+  text-align: center;
+  margin-bottom: 30px;
+  font-size: 24px;
+}
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  transition: background-color 0.3s;
+}
+
+.info-item:hover {
+  background: #e9ecef;
+}
+
+.label {
+  font-weight: 600;
+  color: #34495e;
+  min-width: 150px;
+}
+
+.value {
+  color: #2c3e50;
+  text-align: right;
+  flex: 1;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #3498db;
+  font-size: 18px;
+}
+
+.error-message {
+  text-align: center;
+  padding: 20px;
+  color: #e74c3c;
+  background: #fde8e7;
+  border-radius: 8px;
+  margin: 20px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .profile-container {
+    margin: 10px;
+    padding: 15px;
+  }
+
+  .info-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+
+  .value {
+    text-align: left;
+  }
+}

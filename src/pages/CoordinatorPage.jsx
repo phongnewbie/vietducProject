@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import "./AdminPage.css";
-import "../styles/theme.css";
 import { useNavigate } from "react-router-dom";
-
-// Add these constants at the top of the file
+import "./CoordinatorPage.css";
+import "../styles/theme.css";
 const API_URL = "https://student-info-be.onrender.com/api";
 
-const AdminPage = () => {
+const CoordinatorPage = () => {
   const [activeTab, setActiveTab] = useState("departments");
   const [majors, setMajors] = useState([]);
   const [users, setUsers] = useState([]);
@@ -119,7 +117,7 @@ const AdminPage = () => {
       const token = localStorage.getItem("token");
       const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-      if (!token || user.role !== "admin") {
+      if (!token || (user.role !== "admin" && user.role !== "coordinator")) {
         navigate("/login");
         return false;
       }
@@ -367,8 +365,8 @@ const AdminPage = () => {
   const handleSaveNotification = async (id) => {
     try {
       const token = localStorage.getItem("token");
-      await axios.put(
-        `https://student-info-be.onrender.com/api/notifications/${id}/save`,
+      const response = await axios.put(
+        `${API_URL}/notifications/${id}/save`,
         {},
         {
           headers: {
@@ -376,12 +374,24 @@ const AdminPage = () => {
           },
         }
       );
-      setSuccess("Đã lưu thông báo!");
-      setTimeout(() => setSuccess(""), 2000);
-      await fetchNotifications();
-      await fetchSavedNotifications();
+
+      // Kiểm tra response.data.success hoặc response.data.message
+      if (
+        response.data.success ||
+        response.data.message === "Notification saved successfully"
+      ) {
+        setSuccess("Đã lưu thông báo!");
+        setTimeout(() => setSuccess(""), 2000);
+
+        // Cập nhật lại cả hai danh sách
+        await Promise.all([fetchNotifications(), fetchSavedNotifications()]);
+      } else {
+        setError("Không thể lưu thông báo");
+        setTimeout(() => setError(""), 2000);
+      }
     } catch (err) {
-      setError("Không thể lưu thông báo");
+      console.error("Error saving notification:", err);
+      setError(err.response?.data?.message || "Không thể lưu thông báo");
       setTimeout(() => setError(""), 2000);
     }
   };
@@ -389,8 +399,8 @@ const AdminPage = () => {
   const handleUnsaveNotification = async (id) => {
     try {
       const token = localStorage.getItem("token");
-      await axios.put(
-        `https://student-info-be.onrender.com/api/notifications/${id}/unsave`,
+      const response = await axios.put(
+        `${API_URL}/notifications/${id}/unsave`,
         {},
         {
           headers: {
@@ -398,12 +408,24 @@ const AdminPage = () => {
           },
         }
       );
-      setSuccess("Đã bỏ lưu thông báo!");
-      setTimeout(() => setSuccess(""), 2000);
-      await fetchNotifications();
-      await fetchSavedNotifications();
+
+      // Kiểm tra response.data.success hoặc response.data.message
+      if (
+        response.data.success ||
+        response.data.message === "Notification unsaved successfully"
+      ) {
+        setSuccess("Đã bỏ lưu thông báo!");
+        setTimeout(() => setSuccess(""), 2000);
+
+        // Cập nhật lại cả hai danh sách
+        await Promise.all([fetchNotifications(), fetchSavedNotifications()]);
+      } else {
+        setError("Không thể bỏ lưu thông báo");
+        setTimeout(() => setError(""), 2000);
+      }
     } catch (err) {
-      setError("Không thể bỏ lưu thông báo");
+      console.error("Error unsaving notification:", err);
+      setError(err.response?.data?.message || "Không thể bỏ lưu thông báo");
       setTimeout(() => setError(""), 2000);
     }
   };
@@ -471,7 +493,7 @@ const AdminPage = () => {
           err.response?.data?.message || "Không thể tải danh sách sự kiện"
         );
       }
-        setTimeout(() => setError(""), 3000);
+      setTimeout(() => setError(""), 3000);
     }
   };
 
@@ -509,10 +531,10 @@ const AdminPage = () => {
       console.log("Creating event with data:", newEvent); // Debug log
 
       const response = await axios.post(`${API_URL}/events`, newEvent, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
 
       console.log("Create event response:", response.data); // Debug log
@@ -550,8 +572,8 @@ const AdminPage = () => {
           window.location.href = "/login";
         }, 3000);
       } else {
-      setError(err.response?.data?.message || "Không thể tạo sự kiện");
-      setTimeout(() => setError(""), 3000);
+        setError(err.response?.data?.message || "Không thể tạo sự kiện");
+        setTimeout(() => setError(""), 3000);
       }
     }
   };
@@ -1831,10 +1853,10 @@ const AdminPage = () => {
       }
 
       const response = await axios.delete(`${API_URL}/notifications/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (response.data.success) {
@@ -2706,38 +2728,22 @@ const AdminPage = () => {
           >
             Tất cả thông báo
           </button>
-          {user.role !== "admin" && (
-            <button
-              className={`tab-button ${
-                activeTab === "notifications_saved" ? "active" : ""
-              }`}
-              onClick={() => {
-                setActiveTab("notifications_saved");
-                fetchSavedNotifications();
-              }}
-            >
-              Thông báo đã lưu
-            </button>
-          )}
           <button
             className={`tab-button ${
-              activeTab === "departments" ? "active" : ""
+              activeTab === "notifications_saved" ? "active" : ""
             }`}
-            onClick={() => setActiveTab("departments")}
+            onClick={() => {
+              setActiveTab("notifications_saved");
+              fetchSavedNotifications();
+            }}
           >
-            Ngành Học
+            Thông báo đã lưu
           </button>
           <button
-            className={`tab-button ${activeTab === "users" ? "active" : ""}`}
-            onClick={() => setActiveTab("users")}
+            className={`tab-button ${activeTab === "events" ? "active" : ""}`}
+            onClick={() => setActiveTab("events")}
           >
-            Người Dùng
-          </button>
-          <button
-            className={`tab-button ${activeTab === "datasets" ? "active" : ""}`}
-            onClick={() => setActiveTab("datasets")}
-          >
-            Dữ Liệu
+            Sự Kiện
           </button>
           <button
             className={`tab-button ${
@@ -2745,13 +2751,7 @@ const AdminPage = () => {
             }`}
             onClick={() => setActiveTab("scholarships")}
           >
-            Scholarships
-          </button>
-          <button
-            className={`tab-button ${activeTab === "events" ? "active" : ""}`}
-            onClick={() => setActiveTab("events")}
-          >
-            Sự Kiện
+            Học Bổng
           </button>
         </div>
         <div className="header-right">
@@ -2786,169 +2786,10 @@ const AdminPage = () => {
       )}
 
       <div className="tab-content">
-        {activeTab === "departments" && (
-          <>
-            <div className="section-header">
-              <h2>Danh Sách Ngành Học</h2>
-              <button
-                className="add-button"
-                onClick={() => setShowEditModal(true)}
-              >
-                <i className="fas fa-plus"></i> Thêm Ngành Mới
-              </button>
-            </div>
-
-            <div className="majors-list">
-              {majors.length === 0 ? (
-                <p>Không có ngành học nào</p>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Tên Ngành</th>
-                      <th>Mã Ngành</th>
-                      <th>Mô Tả</th>
-                      <th>Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {majors.map((major) => (
-                      <tr key={major._id}>
-                        <td>{major.name}</td>
-                        <td>{major.code}</td>
-                        <td>{major.description}</td>
-                        <td className="Button_Major">
-                          <button
-                            className="edit-button"
-                            onClick={() => handleEdit(major)}
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            className="delete-button"
-                            onClick={() => handleDeleteDepartment(major._id)}
-                          >
-                            Xóa
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </>
-        )}
-
-        {activeTab === "users" && (
-          <div className="users-list">
-            <h2>Danh Sách Người Dùng</h2>
-            {users.length === 0 ? (
-              <p>Không có người dùng nào</p>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Tên</th>
-                    <th>Email</th>
-                    <th>Vai trò</th>
-                    <th>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr key={user._id}>
-                      <td>{user.name}</td>
-                      <td>{user.email}</td>
-                      <td>{user.role}</td>
-                      <td>
-                        <button
-                          className="edit-button"
-                          onClick={() => handleUserEdit(user)}
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          className="delete-button"
-                          onClick={() => handleUserDelete(user._id)}
-                        >
-                          Xóa
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
-
-        {activeTab === "datasets" && (
-          <>
-            <div className="section-header">
-              <h2>Danh Sách Dataset</h2>
-              <button
-                className="add-button"
-                onClick={() => setShowDatasetEditModal(true)}
-              >
-                <i className="fas fa-plus"></i> Thêm Dataset Mới
-              </button>
-            </div>
-
-            <div className="datasets-list">
-              {datasets.length === 0 ? (
-                <p>Không có dataset nào</p>
-              ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Key</th>
-                      <th>Value</th>
-                      <th>Category</th>
-                      <th>Department</th>
-                      <th>Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {datasets.map((dataset) => (
-                      <tr key={dataset._id}>
-                        <td>{dataset.key}</td>
-                        <td>{dataset.value}</td>
-                        <td>{dataset.category}</td>
-                        <td>
-                          {dataset.department
-                            ? majors.find((m) => m._id === dataset.department)
-                                ?.name
-                            : "Không có"}
-                        </td>
-                        <td>
-                          <button
-                            className="edit-button"
-                            onClick={() => handleDatasetEdit(dataset)}
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            className="delete-button"
-                            onClick={() => handleDatasetDelete(dataset._id)}
-                          >
-                            Xóa
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </>
-        )}
-
-        {activeTab === "scholarships" && renderScholarships()}
-
         {activeTab === "notifications_all" && renderNotifications()}
         {activeTab === "notifications_saved" && renderSavedNotifications()}
         {activeTab === "events" && renderEvents()}
+        {activeTab === "scholarships" && renderScholarships()}
       </div>
 
       {/* Add/Edit Department Modal */}
@@ -3205,4 +3046,4 @@ const AdminPage = () => {
   );
 };
 
-export default AdminPage;
+export default CoordinatorPage;

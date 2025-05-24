@@ -10,8 +10,8 @@ import Register from "./Register/Register";
 import MainPage from "./mainpage/MainPage";
 import AdminPage from "./pages/AdminPage";
 import ProtectedRoute from "./components/ProtectedRoute";
-
-function App() {
+import CoordinatorPage from "./pages/CoordinatorPage";
+const App = () => {
   return (
     <Router>
       <Routes>
@@ -33,10 +33,18 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/CoordinatorPage"
+          element={
+            <ProtectedRoute>
+              <CoordinatorPage />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Router>
   );
-}
+};
 
 export default App;

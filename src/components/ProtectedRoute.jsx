@@ -13,11 +13,19 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Kiểm tra role nếu cần
+  // Kiểm tra role dựa trên đường dẫn
   const path = window.location.pathname;
+
+  // Kiểm tra cho AdminPage
   if (path === "/AdminPage" && user.role !== "admin") {
-    console.log("ProtectedRoute - Not a coordinator, redirecting to main");
+    console.log("ProtectedRoute - Not an admin, redirecting to main");
     return <Navigate to="/main" replace />;
+  }
+
+  // Kiểm tra cho MainPage (coordinator)
+  if (path === "/main" && user.role !== "coordinator") {
+    console.log("ProtectedRoute - Not a coordinator, redirecting to login");
+    return <Navigate to="/login" replace />;
   }
 
   console.log("ProtectedRoute - Access granted");

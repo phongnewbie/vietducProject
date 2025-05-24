@@ -37,6 +37,8 @@ const Login = () => {
           // Kiểm tra role và chuyển hướng
           if (user.role === "admin") {
             window.location.href = "/AdminPage";
+          } else if (user.role === "coordinator") {
+            window.location.href = "/CoordinatorPage";
           } else {
             window.location.href = "/main";
           }

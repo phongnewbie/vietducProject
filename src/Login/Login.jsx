@@ -32,6 +32,7 @@ const Login = () => {
 
         if (profileRes.data?.data) {
           const user = profileRes.data.data;
+          console.log("User data from profile:", user); // Debug log
           localStorage.setItem("user", JSON.stringify(user));
 
           // Kiểm tra role và chuyển hướng
@@ -39,17 +40,26 @@ const Login = () => {
             window.location.href = "/AdminPage";
           } else if (user.role === "coordinator") {
             window.location.href = "/CoordinatorPage";
-          } else {
+          } else if (user.role === "student") {
             window.location.href = "/main";
+          } else {
+            setError("Vai trò người dùng không hợp lệ");
+            localStorage.removeItem("token");
           }
+        } else {
+          setError("Không thể lấy thông tin người dùng");
+          localStorage.removeItem("token");
         }
       }
     } catch (err) {
+      console.error("Login error:", err); // Debug log
       if (err.response?.status === 401) {
         setError("Email hoặc mật khẩu không đúng");
       } else {
-        setError("Có lỗi xảy ra khi đăng nhập");
+        setError(err.response?.data?.message || "Có lỗi xảy ra khi đăng nhập");
       }
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
     } finally {
       setLoading(false);
     }

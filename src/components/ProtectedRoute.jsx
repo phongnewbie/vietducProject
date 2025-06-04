@@ -22,9 +22,22 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/main" replace />;
   }
 
-  // Kiểm tra cho MainPage (coordinator)
-  if (path === "/main" && user.role !== "coordinator") {
-    console.log("ProtectedRoute - Not a coordinator, redirecting to login");
+  // Kiểm tra cho CoordinatorPage
+  if (path === "/CoordinatorPage" && user.role !== "coordinator") {
+    console.log("ProtectedRoute - Not a coordinator, redirecting to main");
+    return <Navigate to="/main" replace />;
+  }
+
+  // Kiểm tra cho MainPage (student)
+  if (path === "/main" && user.role !== "student") {
+    console.log(
+      "ProtectedRoute - Not a student, redirecting to appropriate page"
+    );
+    if (user.role === "admin") {
+      return <Navigate to="/AdminPage" replace />;
+    } else if (user.role === "coordinator") {
+      return <Navigate to="/CoordinatorPage" replace />;
+    }
     return <Navigate to="/login" replace />;
   }
 

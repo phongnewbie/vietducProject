@@ -43,35 +43,93 @@ const MainPage = () => {
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) return;
+      if (!token) {
+        console.error("No token found");
+        return;
+      }
 
+      console.log("Fetching notifications..."); // Debug log
       const response = await axios.get(
         "https://student-info-be.onrender.com/api/notifications",
         {
           headers: {
             Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
           },
         }
       );
 
-      if (Array.isArray(response.data)) {
-        setNotifications(response.data);
-        const unread = response.data.filter((n) => !n.isRead).length;
+      console.log("Raw notifications response:", response); // Debug log
+      console.log("Notifications response data:", response.data); // Debug log
+
+      let notificationsData = [];
+
+      // Check if response has data property
+      if (response.data?.data) {
+        notificationsData = response.data.data;
+      }
+      // Check if response is an array
+      else if (Array.isArray(response.data)) {
+        notificationsData = response.data;
+      }
+      // Check if response has notifications property
+      else if (response.data?.notifications) {
+        notificationsData = response.data.notifications;
+      }
+      // Check if response has success property and data
+      else if (response.data?.success && response.data?.data) {
+        notificationsData = response.data.data;
+      }
+
+      console.log("Processed notifications:", notificationsData); // Debug log
+
+      if (notificationsData && notificationsData.length > 0) {
+        // Sort notifications by createdAt
+        notificationsData.sort((a, b) => {
+          const dateA = new Date(a.createdAt || a.created_at);
+          const dateB = new Date(b.createdAt || b.created_at);
+          return dateB - dateA;
+        });
+
+        // Update notifications state
+        setNotifications(notificationsData);
+
+        // Calculate unread count
+        const unread = notificationsData.filter((n) => !n.isRead).length;
+        console.log("Unread count:", unread); // Debug log
         setUnreadCount(unread);
-      } else if (response.data && Array.isArray(response.data.data)) {
-        setNotifications(response.data.data);
-        const unread = response.data.data.filter((n) => !n.isRead).length;
-        setUnreadCount(unread);
+      } else {
+        console.log("No notifications found");
+        setNotifications([]);
+        setUnreadCount(0);
       }
     } catch (error) {
       console.error("Error fetching notifications:", error);
+      if (error.response) {
+        console.error("Error response:", error.response.data);
+        console.error("Error status:", error.response.status);
+        if (error.response.status === 401) {
+          // Token expired or invalid
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          navigate("/login");
+          return;
+        }
+      }
+      setError("Không thể tải thông báo. Vui lòng thử lại sau.");
+      setNotifications([]);
+      setUnreadCount(0);
     }
   };
 
   useEffect(() => {
+    console.log("Setting up notification polling..."); // Debug log
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000);
-    return () => clearInterval(interval);
+    const interval = setInterval(fetchNotifications, 60000); // Poll every minute
+    return () => {
+      console.log("Cleaning up notification polling..."); // Debug log
+      clearInterval(interval);
+    };
   }, []);
 
   const fetchChatHistory = async () => {
@@ -271,7 +329,7 @@ const MainPage = () => {
   const renderNotifications = () => (
     <div className="notifications-dropdown">
       <div className="notifications-header">
-        <h3>Thông báo</h3>
+        <h3>Thông báo {unreadCount > 0 && `(${unreadCount} mới)`}</h3>
         <button onClick={() => setShowNotifications(false)}>
           <i className="fas fa-times"></i>
         </button>
@@ -294,7 +352,9 @@ const MainPage = () => {
                         ? "Thông báo chung"
                         : notification.type === "scholarship"
                         ? "Học bổng"
-                        : "Sự kiện"}
+                        : notification.type === "event"
+                        ? "Sự kiện"
+                        : "Thông báo khác"}
                     </span>
                   </div>
                   <p className="notification-short-content">
@@ -516,14 +576,16 @@ const MainPage = () => {
               Xin chào {userName || "Người dùng"}
             </span>
           </div>
-          <div
-            className="notifications-icon"
-            onClick={() => setShowNotifications(!showNotifications)}
-          >
-            <i className="fas fa-bell"></i>
-            {unreadCount > 0 && (
-              <span className="notification-badge">{unreadCount}</span>
-            )}
+          <div className="notifications-container">
+            <div
+              className="notifications-icon"
+              onClick={() => setShowNotifications(!showNotifications)}
+            >
+              <i className="fas fa-bell"></i>
+              {unreadCount > 0 && (
+                <span className="notification-badge">{unreadCount}</span>
+              )}
+            </div>
             {showNotifications && renderNotifications()}
           </div>
           <button onClick={handleLogout} className="logout-button">

@@ -1,0 +1,177 @@
+.notification-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.notification-card {
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  transition: transform 0.2s ease;
+}
+
+.notification-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.notification-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.25rem;
+}
+
+.notification-type {
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.notification-type.event {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.notification-type.scholarship {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.notification-type.dataset {
+  background-color: #fff3e0;
+  color: #f57c00;
+}
+
+.notification-content {
+  color: #666;
+  line-height: 1.6;
+}
+
+.notification-content p {
+  margin: 0.5rem 0;
+}
+
+.notification-content strong {
+  color: #333;
+}
+
+.notification-content a {
+  color: #1976d2;
+  text-decoration: none;
+}
+
+.notification-content a:hover {
+  text-decoration: underline;
+}
+
+.notification-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #eee;
+}
+
+.notification-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.notification-actions button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s ease;
+}
+
+.edit-button {
+  background-color: #1976d2;
+  color: white;
+}
+
+.edit-button:hover {
+  background-color: #1565c0;
+}
+
+.delete-button {
+  background-color: #d32f2f;
+  color: white;
+}
+
+.delete-button:hover {
+  background-color: #c62828;
+}
+
+.save-button {
+  background-color: #2e7d32;
+  color: white;
+}
+
+.save-button:hover {
+  background-color: #1b5e20;
+}
+
+.unsave-button {
+  background-color: #757575;
+  color: white;
+}
+
+.unsave-button:hover {
+  background-color: #616161;
+}
+
+.notification-meta {
+  color: #757575;
+  font-size: 0.875rem;
+}
+
+.no-notifications {
+  text-align: center;
+  padding: 2rem;
+  color: #757575;
+  font-size: 1.1rem;
+}
+
+/* Dark mode styles */
+.dark-mode .notification-card {
+  background: #1e1e1e;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .notification-header h3 {
+  color: #fff;
+}
+
+.dark-mode .notification-content {
+  color: #b0b0b0;
+}
+
+.dark-mode .notification-content strong {
+  color: #fff;
+}
+
+.dark-mode .notification-footer {
+  border-top-color: #333;
+}
+
+.dark-mode .notification-meta {
+  color: #b0b0b0;
+}
+
+.dark-mode .no-notifications {
+  color: #b0b0b0;
+}

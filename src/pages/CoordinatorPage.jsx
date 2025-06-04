@@ -3,3045 +3,356 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import "./CoordinatorPage.css";
 import "../styles/theme.css";
+import Header from "../components/layout/Header";
+import NotificationList from "../components/notifications/NotificationList";
+import NotificationFilter from "../components/notifications/NotificationFilter";
+import { notificationService } from "../services/notificationService";
+
 const API_URL = "https://student-info-be.onrender.com/api";
 
 const CoordinatorPage = () => {
-  const [activeTab, setActiveTab] = useState("departments");
-  const [majors, setMajors] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [datasets, setDatasets] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
-  const [newMajor, setNewMajor] = useState({
-    name: "",
-    code: "",
-    description: "",
-  });
-  const [newDataset, setNewDataset] = useState({
-    key: "",
-    value: "",
-    category: "",
-    department: null,
-  });
-  const [editingMajor, setEditingMajor] = useState(null);
-  const [editingUser, setEditingUser] = useState(null);
-  const [editingDataset, setEditingDataset] = useState(null);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showUserEditModal, setShowUserEditModal] = useState(false);
-  const [showDatasetEditModal, setShowDatasetEditModal] = useState(false);
-  const [formErrors, setFormErrors] = useState({});
-  const [userFormErrors, setUserFormErrors] = useState({});
-  const [datasetFormErrors, setDatasetFormErrors] = useState({});
-  const [notifications, setNotifications] = useState([]);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [showNotificationForm, setShowNotificationForm] = useState(false);
-  const [newNotification, setNewNotification] = useState({
-    title: "",
-    content: "",
-    type: "general",
-    department: "",
-    startDate: "",
-    endDate: "",
-    isImportant: false,
-  });
-  const [editingNotificationId, setEditingNotificationId] = useState(null);
-  const [editNotification, setEditNotification] = useState({});
-  const [savedNotifications, setSavedNotifications] = useState([]);
-  const [activeNotificationTab, setActiveNotificationTab] = useState("all");
-  const [notificationTypeFilter, setNotificationTypeFilter] = useState("");
-  const [notificationDepartmentFilter, setNotificationDepartmentFilter] =
-    useState("");
-  const [events, setEvents] = useState([]);
-  const [showEventForm, setShowEventForm] = useState(false);
-  const [newEvent, setNewEvent] = useState({
-    title: "",
-    description: "",
-    location: "",
-    organizer: "",
-    department: "",
-    startDate: "",
-    endDate: "",
-  });
-  const [editingEventId, setEditingEventId] = useState(null);
-  const [editEvent, setEditEvent] = useState(null);
-  const [eventDepartmentFilter, setEventDepartmentFilter] = useState("");
-  const [scholarships, setScholarships] = useState([]);
-  const [showScholarshipForm, setShowScholarshipForm] = useState(false);
-  const [editingScholarshipId, setEditingScholarshipId] = useState(null);
-  const [editScholarship, setEditScholarship] = useState(null);
-  const [scholarshipDepartmentFilter, setScholarshipDepartmentFilter] =
-    useState("");
-  const [newScholarship, setNewScholarship] = useState({
-    title: "",
-    description: "",
-    requirements: "",
-    value: "",
-    applicationDeadline: "",
-    provider: "",
-    department: "",
-    eligibility: "",
-    applicationProcess: "",
-  });
-  const [isDarkMode, setIsDarkMode] = useState(false);
-  const [token] = useState(localStorage.getItem("token"));
   const navigate = useNavigate();
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-
-  // Add these state variables with other state declarations
-  const [scholarshipFormData, setScholarshipFormData] = useState({
-    title: "",
-    description: "",
-    requirements: "",
-    value: "",
-    applicationDeadline: "",
-    provider: "",
-    department: "",
-    eligibility: "",
-    applicationProcess: "",
-  });
-
-  const [editingScholarship, setEditingScholarship] = useState(null);
-
-  const [notificationFormData, setNotificationFormData] = useState({
-    title: "",
-    content: "",
-    type: "general",
-    department: "",
-    priority: "normal",
-  });
+  const [activeTab, setActiveTab] = useState("notifications_all");
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [savedNotifications, setSavedNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState(null);
+  const [filterType, setFilterType] = useState("");
+  const [filterDepartment, setFilterDepartment] = useState("");
+  const [departments, setDepartments] = useState([]);
+  const [user, setUser] = useState(null);
+  const [userRole, setUserRole] = useState(null);
 
   useEffect(() => {
-    const checkAuth = () => {
-      const token = localStorage.getItem("token");
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
+    checkAuth();
+    fetchDepartments();
+  }, []);
 
-      if (!token || (user.role !== "admin" && user.role !== "coordinator")) {
-        navigate("/login");
-        return false;
-      }
-      return true;
-    };
-
-    const fetchData = async () => {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setError("Vui lòng đăng nhập lại");
-          setTimeout(() => setError(""), 3000);
-          navigate("/login");
-          return;
-        }
-
-        console.log("Fetching initial data..."); // Debug log
-
-        // Fetch all data in parallel
-        const [
-          majorsRes,
-          usersRes,
-          datasetsRes,
-          notificationsRes,
-          eventsRes,
-          scholarshipsRes,
-        ] = await Promise.all([
-          axios.get(`${API_URL}/departments`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${API_URL}/users`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${API_URL}/dataset`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${API_URL}/notifications`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${API_URL}/events`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${API_URL}/scholarships`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
-
-        // Update states with response data
-        if (majorsRes.data && Array.isArray(majorsRes.data)) {
-          setMajors(majorsRes.data);
-        } else if (majorsRes.data?.data && Array.isArray(majorsRes.data.data)) {
-          setMajors(majorsRes.data.data);
-        }
-
-        if (usersRes.data && Array.isArray(usersRes.data)) {
-          setUsers(usersRes.data);
-        } else if (usersRes.data?.data && Array.isArray(usersRes.data.data)) {
-          setUsers(usersRes.data.data);
-        }
-
-        if (datasetsRes.data && Array.isArray(datasetsRes.data)) {
-          setDatasets(datasetsRes.data);
-        } else if (
-          datasetsRes.data?.data &&
-          Array.isArray(datasetsRes.data.data)
-        ) {
-          setDatasets(datasetsRes.data.data);
-        }
-
-        if (notificationsRes.data && Array.isArray(notificationsRes.data)) {
-          setNotifications(notificationsRes.data);
-        } else if (
-          notificationsRes.data?.data &&
-          Array.isArray(notificationsRes.data.data)
-        ) {
-          setNotifications(notificationsRes.data.data);
-        }
-
-        if (eventsRes.data && Array.isArray(eventsRes.data)) {
-          setEvents(eventsRes.data);
-        } else if (eventsRes.data?.data && Array.isArray(eventsRes.data.data)) {
-          setEvents(eventsRes.data.data);
-        }
-
-        if (scholarshipsRes.data && Array.isArray(scholarshipsRes.data)) {
-          setScholarships(scholarshipsRes.data);
-        } else if (
-          scholarshipsRes.data?.data &&
-          Array.isArray(scholarshipsRes.data.data)
-        ) {
-          setScholarships(scholarshipsRes.data.data);
-        }
-      } catch (err) {
-        console.error("Error fetching initial data:", err);
-        if (err.response?.status === 401) {
-          setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-          setTimeout(() => {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            navigate("/login");
-          }, 3000);
-        } else if (err.code === "ERR_NETWORK") {
-          setError(
-            "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-          );
-        } else {
-          setError(
-            err.response?.data?.message || "Có lỗi xảy ra khi tải dữ liệu"
-          );
-        }
-        setTimeout(() => setError(""), 3000);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (checkAuth()) {
-      fetchData();
-    }
-  }, [navigate]);
-
-  // Add fetchNotifications function
-  const fetchNotifications = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Vui lòng đăng nhập lại");
-        return;
-      }
-
-      let url = `${API_URL}/notifications`;
-      const params = [];
-
-      // Chỉ thêm params khi có giá trị filter
-      if (notificationTypeFilter && notificationTypeFilter !== "") {
-        params.push(`type=${notificationTypeFilter}`);
-      }
-      if (notificationDepartmentFilter && notificationDepartmentFilter !== "") {
-        params.push(`department=${notificationDepartmentFilter}`);
-      }
-
-      // Chỉ thêm query params nếu có filter
-      if (params.length > 0) {
-        url += `?${params.join("&")}`;
-      }
-
-      console.log("Fetching notifications from:", url); // Debug log
-
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.data) {
-        setError("Không có dữ liệu thông báo");
-        setNotifications([]);
-        return;
-      }
-
-      let notificationsData = [];
-      if (Array.isArray(response.data)) {
-        notificationsData = response.data;
-      } else if (response.data.data && Array.isArray(response.data.data)) {
-        notificationsData = response.data.data;
-      } else if (
-        response.data.notifications &&
-        Array.isArray(response.data.notifications)
-      ) {
-        notificationsData = response.data.notifications;
-      } else {
-        setError("Định dạng dữ liệu thông báo không hợp lệ");
-        setNotifications([]);
-        return;
-      }
-
-      // Sắp xếp thông báo theo thời gian tạo mới nhất
-      notificationsData.sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-      );
-      setNotifications(notificationsData);
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-      if (err.response?.status === 401) {
-        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
-        }, 3000);
-      } else {
-        setError(
-          err.response?.data?.message || "Không thể tải danh sách thông báo"
-        );
-      }
-      setNotifications([]);
-    }
-  };
-
-  // Remove the separate useEffect for notifications filter since we have fetchNotifications function
-  useEffect(() => {
-    fetchNotifications();
-  }, [notificationTypeFilter, notificationDepartmentFilter]);
-
-  const markAsRead = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
-      await axios.put(
-        `https://student-info-be.onrender.com/api/notifications/${id}/read`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      await fetchNotifications();
-    } catch (err) {
-      console.error("Error marking notification as read:", err);
-    }
-  };
-
-  const fetchSavedNotifications = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await axios.get(
-        "https://student-info-be.onrender.com/api/notifications/saved",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-      if (Array.isArray(response.data)) {
-        setSavedNotifications(response.data);
-      } else if (response.data && Array.isArray(response.data.data)) {
-        setSavedNotifications(response.data.data);
-      }
-    } catch (err) {
-      setError("Không thể tải danh sách thông báo đã lưu");
-    }
-  };
-
-  const handleSaveNotification = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await axios.put(
-        `${API_URL}/notifications/${id}/save`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // Kiểm tra response.data.success hoặc response.data.message
-      if (
-        response.data.success ||
-        response.data.message === "Notification saved successfully"
-      ) {
-        setSuccess("Đã lưu thông báo!");
-        setTimeout(() => setSuccess(""), 2000);
-
-        // Cập nhật lại cả hai danh sách
-        await Promise.all([fetchNotifications(), fetchSavedNotifications()]);
-      } else {
-        setError("Không thể lưu thông báo");
-        setTimeout(() => setError(""), 2000);
-      }
-    } catch (err) {
-      console.error("Error saving notification:", err);
-      setError(err.response?.data?.message || "Không thể lưu thông báo");
-      setTimeout(() => setError(""), 2000);
-    }
-  };
-
-  const handleUnsaveNotification = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
-      const response = await axios.put(
-        `${API_URL}/notifications/${id}/unsave`,
-        {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      // Kiểm tra response.data.success hoặc response.data.message
-      if (
-        response.data.success ||
-        response.data.message === "Notification unsaved successfully"
-      ) {
-        setSuccess("Đã bỏ lưu thông báo!");
-        setTimeout(() => setSuccess(""), 2000);
-
-        // Cập nhật lại cả hai danh sách
-        await Promise.all([fetchNotifications(), fetchSavedNotifications()]);
-      } else {
-        setError("Không thể bỏ lưu thông báo");
-        setTimeout(() => setError(""), 2000);
-      }
-    } catch (err) {
-      console.error("Error unsaving notification:", err);
-      setError(err.response?.data?.message || "Không thể bỏ lưu thông báo");
-      setTimeout(() => setError(""), 2000);
-    }
-  };
-
-  const fetchEvents = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Vui lòng đăng nhập lại");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      let url = `${API_URL}/events`;
-      if (eventDepartmentFilter) {
-        url += `?department=${eventDepartmentFilter}`;
-      }
-
-      console.log("Fetching events from:", url); // Debug log
-
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      console.log("Events API Response:", response.data); // Debug log
-
-      let eventsData = [];
-      if (response.data && Array.isArray(response.data)) {
-        eventsData = response.data;
-      } else if (response.data?.data && Array.isArray(response.data.data)) {
-        eventsData = response.data.data;
-      } else if (response.data?.events && Array.isArray(response.data.events)) {
-        eventsData = response.data.events;
-      } else {
-        console.error("Invalid events data format:", response.data);
-        setError("Định dạng dữ liệu sự kiện không hợp lệ");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      // Sort events by start date (newest first)
-      eventsData.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
-
-      // Update state with the new events data
-      setEvents(eventsData);
-      console.log("Updated events state:", eventsData); // Debug log
-    } catch (err) {
-      console.error("Error fetching events:", err);
-      if (err.response?.status === 401) {
-        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
-        }, 3000);
-      } else if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      } else {
-        setError(
-          err.response?.data?.message || "Không thể tải danh sách sự kiện"
-        );
-      }
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const handleCreateEvent = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Vui lòng đăng nhập lại");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      // Validate required fields
-      if (
-        !newEvent.title ||
-        !newEvent.description ||
-        !newEvent.location ||
-        !newEvent.organizer ||
-        !newEvent.startDate ||
-        !newEvent.endDate
-      ) {
-        setError("Vui lòng điền đầy đủ thông tin bắt buộc");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      // Validate dates
-      if (new Date(newEvent.startDate) >= new Date(newEvent.endDate)) {
-        setError("Ngày kết thúc phải sau ngày bắt đầu");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      console.log("Creating event with data:", newEvent); // Debug log
-
-      const response = await axios.post(`${API_URL}/events`, newEvent, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      console.log("Create event response:", response.data); // Debug log
-
-      if (response.data && (response.data.success || response.data.data)) {
-        // Hiển thị thông báo thành công
-        setSuccess("Sự kiện đã được tạo thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-
-        // Reset form và đóng form
-        setNewEvent({
-          title: "",
-          description: "",
-          location: "",
-          organizer: "",
-          department: "",
-          startDate: "",
-          endDate: "",
-        });
-        setShowEventForm(false);
-
-        // Fetch lại danh sách để đảm bảo dữ liệu đồng bộ
-        await fetchEvents();
-      } else {
-        setError(response.data?.message || "Không thể tạo sự kiện");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (err) {
-      console.error("Error creating event:", err);
-      if (err.response?.status === 401) {
-        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
-        }, 3000);
-      } else {
-        setError(err.response?.data?.message || "Không thể tạo sự kiện");
-        setTimeout(() => setError(""), 3000);
-      }
-    }
-  };
-
-  const handleEditEventClick = (event) => {
-    setEditingEventId(event._id);
-    setEditEvent({
-      title: event.title,
-      description: event.description,
-      location: event.location,
-      organizer: event.organizer,
-      department: event.department ? event.department._id : "",
-      startDate: new Date(event.startDate).toISOString().slice(0, 16),
-      endDate: new Date(event.endDate).toISOString().slice(0, 16),
-    });
-  };
-
-  const handleEditEventChange = (e) => {
-    const { name, value } = e.target;
-    setEditEvent((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleUpdateEvent = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Vui lòng đăng nhập lại");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      // Validate required fields
-      if (
-        !editEvent.title ||
-        !editEvent.description ||
-        !editEvent.location ||
-        !editEvent.organizer ||
-        !editEvent.startDate ||
-        !editEvent.endDate
-      ) {
-        setError("Vui lòng điền đầy đủ thông tin bắt buộc");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      // Validate dates
-      if (new Date(editEvent.startDate) >= new Date(editEvent.endDate)) {
-        setError("Ngày kết thúc phải sau ngày bắt đầu");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      const response = await axios.put(
-        `https://student-info-be.onrender.com/api/events/${editingEventId}`,
-        editEvent,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setSuccess("Cập nhật sự kiện thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-
-        // Update events state immediately with the updated event
-        const updatedEventData = response.data.data;
-        setEvents((prevEvents) =>
-          prevEvents.map((event) =>
-            event._id === editingEventId ? updatedEventData : event
-          )
-        );
-
-        setEditingEventId(null);
-        setEditEvent(null);
-      } else {
-        setError(response.data.message || "Không thể cập nhật sự kiện");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (err) {
-      console.error("Error updating event:", err);
-      if (err.response?.status === 401) {
-        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
-        }, 3000);
-      } else {
-        setError(err.response?.data?.message || "Không thể cập nhật sự kiện");
-        setTimeout(() => setError(""), 3000);
-      }
-    }
-  };
-
-  const handleDeleteEvent = async (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa sự kiện này?")) {
-      try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          setError("Vui lòng đăng nhập lại");
-          setTimeout(() => setError(""), 3000);
-          return;
-        }
-
-        const response = await axios.delete(
-          `https://student-info-be.onrender.com/api/events/${id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          }
-        );
-
-        if (response.data.success) {
-          setSuccess("Xóa sự kiện thành công!");
-          setTimeout(() => setSuccess(""), 3000);
-
-          // Update events state immediately by removing the deleted event
-          setEvents((prevEvents) =>
-            prevEvents.filter((event) => event._id !== id)
-          );
-        } else {
-          setError(response.data.message || "Không thể xóa sự kiện");
-          setTimeout(() => setError(""), 3000);
-        }
-      } catch (err) {
-        console.error("Error deleting event:", err);
-        if (err.response?.status === 401) {
-          setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-          setTimeout(() => {
-            localStorage.removeItem("token");
-            localStorage.removeItem("user");
-            window.location.href = "/login";
-          }, 3000);
-        } else {
-          setError(err.response?.data?.message || "Không thể xóa sự kiện");
-          setTimeout(() => setError(""), 3000);
-        }
-      }
-    }
-  };
-
-  const fetchScholarships = async () => {
-    try {
-      let url = `${API_URL}/scholarships`;
-      if (scholarshipDepartmentFilter) {
-        url += `?department=${scholarshipDepartmentFilter}`;
-      }
-      const response = await axios.get(url, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      console.log("Scholarships API Response:", response.data); // Debug log
-
-      // Handle different response formats
-      if (response.data && Array.isArray(response.data)) {
-        setScholarships(response.data);
-      } else if (
-        response.data &&
-        response.data.data &&
-        Array.isArray(response.data.data)
-      ) {
-        setScholarships(response.data.data);
-      } else if (
-        response.data &&
-        response.data.scholarships &&
-        Array.isArray(response.data.scholarships)
-      ) {
-        setScholarships(response.data.scholarships);
-      } else {
-        console.error("Invalid scholarships data format:", response.data);
-        setScholarships([]);
-      }
-    } catch (error) {
-      console.error("Error fetching scholarships:", error);
-      setError(
-        error.response?.data?.message ||
-          "Có lỗi xảy ra khi tải danh sách học bổng"
-      );
-      setScholarships([]); // Set empty array on error
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const handleCreateScholarship = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Vui lòng đăng nhập lại");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      const response = await axios.post(
-        "https://student-info-be.onrender.com/api/scholarships",
-        scholarshipFormData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setSuccess("Tạo học bổng thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        setScholarships((prevScholarships) => [
-          ...prevScholarships,
-          response.data.data,
-        ]);
-        setShowScholarshipForm(false);
-        setScholarshipFormData({
-          title: "",
-          description: "",
-          requirements: "",
-          value: "",
-          applicationDeadline: "",
-          provider: "",
-          department: "",
-          eligibility: "",
-          applicationProcess: "",
-        });
-      } else {
-        setError(response.data.message || "Không thể tạo học bổng");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (error) {
-      console.error("Error creating scholarship:", error);
-      if (error.response?.status === 401) {
-        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
-        }, 3000);
-      } else {
-        setError(error.response?.data?.message || "Không thể tạo học bổng");
-        setTimeout(() => setError(""), 3000);
-      }
-    }
-  };
-
-  const handleUpdateScholarship = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Vui lòng đăng nhập lại");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      const response = await axios.put(
-        `https://student-info-be.onrender.com/api/scholarships/${editingScholarship._id}`,
-        scholarshipFormData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setSuccess("Cập nhật học bổng thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        setScholarships((prevScholarships) =>
-          prevScholarships.map((scholarship) =>
-            scholarship._id === editingScholarship._id
-              ? response.data.data
-              : scholarship
-          )
-        );
-        setEditingScholarship(null);
-        setShowScholarshipForm(false);
-        setScholarshipFormData({
-          title: "",
-          description: "",
-          requirements: "",
-          value: "",
-          applicationDeadline: "",
-          provider: "",
-          department: "",
-          eligibility: "",
-          applicationProcess: "",
-        });
-      } else {
-        setError(response.data.message || "Không thể cập nhật học bổng");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (error) {
-      console.error("Error updating scholarship:", error);
-      if (error.response?.status === 401) {
-        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
-        }, 3000);
-      } else {
-        setError(
-          error.response?.data?.message || "Không thể cập nhật học bổng"
-        );
-        setTimeout(() => setError(""), 3000);
-      }
-    }
-  };
-
-  const handleDeleteScholarship = async (id) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa học bổng này?")) {
-      try {
-        await axios.delete(`${API_URL}/scholarships/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setSuccess("Học bổng đã được xóa thành công!");
-        fetchScholarships();
-      } catch (error) {
-        setError(error.response?.data?.message || "Có lỗi xảy ra");
-      }
-    }
-  };
-
-  const handleEditScholarship = (scholarship) => {
-    setEditingScholarship(scholarship);
-    setScholarshipFormData({
-      title: scholarship.title,
-      description: scholarship.description,
-      requirements: scholarship.requirements,
-      value: scholarship.value,
-      applicationDeadline: scholarship.applicationDeadline,
-      provider: scholarship.provider,
-      department: scholarship.department,
-      eligibility: scholarship.eligibility,
-      applicationProcess: scholarship.applicationProcess,
-    });
-    setShowScholarshipForm(true);
-  };
-
-  const handleScholarshipSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editingScholarship) {
-        await axios.put(
-          `${API_URL}/scholarships/${editingScholarship._id}`,
-          scholarshipFormData,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
-        setSuccess("Học bổng đã được cập nhật thành công!");
-      } else {
-        await axios.post(`${API_URL}/scholarships`, scholarshipFormData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setSuccess("Học bổng đã được thêm thành công!");
-      }
-      setShowScholarshipForm(false);
-      setEditingScholarship(null);
-      setScholarshipFormData({
-        title: "",
-        description: "",
-        requirements: "",
-        value: "",
-        applicationDeadline: "",
-        provider: "",
-        department: "",
-        eligibility: "",
-        applicationProcess: "",
-      });
-      fetchScholarships();
-    } catch (error) {
-      setError(error.response?.data?.message || "Có lỗi xảy ra");
-    }
-  };
-
-  const handleScholarshipInputChange = (e) => {
-    const { name, value } = e.target;
-    setScholarshipFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const validateForm = (data) => {
-    const errors = {};
-    if (!data.name) errors.name = "Tên ngành là bắt buộc";
-    if (!data.code) errors.code = "Mã ngành là bắt buộc";
-    if (!data.description) errors.description = "Mô tả là bắt buộc";
-    return errors;
-  };
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    if (showEditModal) {
-      setEditingMajor((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    } else {
-      setNewMajor((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
-    // Clear error when user starts typing
-    setFormErrors((prev) => ({ ...prev, [name]: "" }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const errors = validateForm(newMajor);
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-
-    if (!token || user.role !== "admin") {
-      window.location.href = "/login";
-      return;
-    }
-
-    try {
-      console.log("Submitting new department:", newMajor);
-      const response = await axios.post(
-        "https://student-info-be.onrender.com/api/departments",
-        newMajor,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      console.log("Add department response:", response.data);
-      setSuccess("Thêm ngành học thành công!");
-      setTimeout(() => setSuccess(""), 3000);
-      await refreshDepartments();
-      setNewMajor({ name: "", code: "", description: "" });
-      setFormErrors({});
-    } catch (err) {
-      console.error("Error adding department:", err.response || err);
-      if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      } else if (err.response?.status === 401) {
-        window.location.href = "/login";
-      } else {
-        setError(err.response?.data?.message || "Không thể thêm ngành học mới");
-      }
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const handleEdit = (major) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (user.role !== "admin") {
-      setError(
-        "Bạn không có quyền chỉnh sửa ngành học. Chỉ Admin mới có quyền này."
-      );
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-    setEditingMajor({ ...major });
-    setShowEditModal(true);
-    setFormErrors({});
-  };
-
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    if (user.role !== "admin") {
-      setError(
-        "Bạn không có quyền cập nhật ngành học. Chỉ Admin mới có quyền này."
-      );
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-
-    const errors = validateForm(editingMajor);
-    if (Object.keys(errors).length > 0) {
-      setFormErrors(errors);
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-
-    try {
-      const response = await axios.put(
-        `https://student-info-be.onrender.com/api/departments/${editingMajor._id}`,
-        editingMajor,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      console.log("Update department response:", response.data);
-      setSuccess("Cập nhật ngành học thành công!");
-      setTimeout(() => setSuccess(""), 3000);
-      await refreshDepartments();
-      setShowEditModal(false);
-      setEditingMajor(null);
-      setFormErrors({});
-    } catch (err) {
-      console.error("Error updating department:", err.response || err);
-      if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      } else if (err.response?.status === 401) {
-        window.location.href = "/login";
-      } else if (err.response?.status === 403) {
-        setError(
-          "Bạn không có quyền cập nhật ngành học. Chỉ Admin mới có quyền này."
-        );
-      } else {
-        setError(err.response?.data?.message || "Không thể cập nhật ngành học");
-      }
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const handleDeleteDepartment = async (id) => {
-    try {
-      const token = localStorage.getItem("token");
-      const user = JSON.parse(localStorage.getItem("user"));
-
-      if (!token) {
-        setError("Không tìm thấy token xác thực");
-        return;
-      }
-
-      if (user?.role !== "admin") {
-        setError("Bạn không có quyền xóa khoa");
-        return;
-      }
-
-      // Kiểm tra department có coordinator không
-      const department = majors.find((m) => m._id === id);
-      if (!department) {
-        setError("Không tìm thấy ngành học cần xóa");
-        return;
-      }
-
-      if (!window.confirm("Bạn có chắc chắn muốn xóa ngành học này?")) {
-        return;
-      }
-
-      // Nếu department có coordinator, xóa coordinator trước
-      if (department.coordinator) {
-        try {
-          // Xóa coordinator trước
-          const updateResponse = await axios.put(
-            `https://student-info-be.onrender.com/api/departments/${id}`,
-            { coordinator: null },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-              },
-            }
-          );
-
-          if (!updateResponse.data.success) {
-            setError("Không thể xóa người phụ trách. Vui lòng thử lại sau.");
-            setTimeout(() => setError(""), 3000);
-            return;
-          }
-        } catch (err) {
-          console.error("Error removing coordinator:", err.response || err);
-          setError("Không thể xóa người phụ trách. Vui lòng thử lại sau.");
-          setTimeout(() => setError(""), 3000);
-          return;
-        }
-      }
-
-      // Sau đó xóa department bằng cách gửi request DELETE với ID
-      const response = await axios({
-        method: "delete",
-        url: `https://student-info-be.onrender.com/api/departments/${id}`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        data: {
-          id,
-          method: "findByIdAndDelete", // Thêm phương thức xóa vào request
-        },
-      });
-
-      if (response.data.success) {
-        setSuccess("Xóa ngành học thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        await refreshDepartments();
-      } else {
-        setError(response.data.message || "Không thể xóa ngành học");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (err) {
-      console.error("Error deleting department:", err);
-      console.error("Error details:", err.response?.data);
-
-      if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      } else if (err.response?.status === 401) {
-        window.location.href = "/login";
-      } else if (err.response?.status === 403) {
-        setError(
-          "Bạn không có quyền xóa ngành học. Chỉ Admin mới có quyền này."
-        );
-      } else if (err.response?.status === 404) {
-        setError("Không tìm thấy ngành học cần xóa. Vui lòng thử lại.");
-      } else if (err.response?.status === 500) {
-        const errorMessage = err.response?.data?.message || "Lỗi server";
-        setError(`Lỗi server: ${errorMessage}. Vui lòng thử lại sau.`);
-      } else {
-        setError(err.response?.data?.message || "Không thể xóa ngành học");
-      }
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const handleUserEdit = (user) => {
-    setEditingUser({ ...user });
-    setShowUserEditModal(true);
-    setUserFormErrors({});
-  };
-
-  const validateUserForm = (data) => {
-    const errors = {};
-    if (!data.name) errors.name = "Tên là bắt buộc";
-    if (!data.email) {
-      errors.email = "Email là bắt buộc";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
-      errors.email = "Email không hợp lệ";
-    }
-    if (!data.role) errors.role = "Vai trò là bắt buộc";
-    return errors;
-  };
-
-  const handleUserUpdate = async (e) => {
-    e.preventDefault();
-    const token = localStorage.getItem("token");
-    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-
-    // Debug logs
-    console.log("Current user:", currentUser);
-    console.log("Editing user:", editingUser);
-    console.log("Token:", token);
-
-    // Kiểm tra quyền admin
-    if (!token) {
-      setError("Vui lòng đăng nhập lại");
-      window.location.href = "/login";
-      return;
-    }
-
-    if (currentUser.role !== "admin") {
-      setError("Bạn không có quyền admin");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-
-    // Validate form
-    const errors = validateUserForm(editingUser);
-    if (Object.keys(errors).length > 0) {
-      setUserFormErrors(errors);
-      return;
-    }
-
-    try {
-      // Kiểm tra user cần cập nhật
-      const userToUpdate = users.find((u) => u._id === editingUser._id);
-      if (!userToUpdate) {
-        setError("Không tìm thấy người dùng cần cập nhật");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      // Debug log
-      console.log("User to update:", userToUpdate);
-
-      // Kiểm tra nếu đang cập nhật chính mình
-      if (editingUser._id === currentUser._id) {
-        setError("Bạn không thể thay đổi vai trò của chính mình");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      // Kiểm tra nếu đang cập nhật admin khác
-      if (
-        userToUpdate.role === "admin" &&
-        currentUser._id !== userToUpdate._id
-      ) {
-        setError("Bạn không thể cập nhật tài khoản admin khác");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      // Gửi request với cấu trúc data đúng
-      const requestData = {
-        name: editingUser.name,
-        email: editingUser.email,
-        role: editingUser.role,
-        currentUserId: currentUser._id, // Thêm ID của user hiện tại
-        currentUserRole: currentUser.role, // Thêm role của user hiện tại
-      };
-
-      // Debug log
-      console.log("Request data:", requestData);
-
-      const response = await axios({
-        method: "put",
-        url: `https://student-info-be.onrender.com/api/users/${editingUser._id}`,
-        data: requestData,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      // Debug log
-      console.log("Response:", response.data);
-
-      if (response.data.message === "User updated successfully") {
-        setSuccess("Cập nhật người dùng thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        await refreshUsers();
-        setShowUserEditModal(false);
-        setEditingUser(null);
-      } else {
-        setError(response.data.message || "Không thể cập nhật người dùng");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (err) {
-      console.error("Error updating user:", err.response || err);
-      console.error("Error details:", {
-        status: err.response?.status,
-        data: err.response?.data,
-        message: err.message,
-      });
-
-      if (err.code === "ERR_NETWORK") {
-        setError("Không thể kết nối đến máy chủ");
-      } else if (err.response?.status === 401) {
-        window.location.href = "/login";
-      } else if (err.response?.status === 403) {
-        setError("Bạn không có quyền cập nhật người dùng này");
-      } else {
-        setError(
-          err.response?.data?.message || "Không thể cập nhật người dùng"
-        );
-      }
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const handleUserDelete = async (id) => {
-    const token = localStorage.getItem("token");
-    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-
-    if (!token || currentUser.role !== "admin") {
-      window.location.href = "/login";
-      return;
-    }
-
-    const userToDelete = users.find((u) => u._id === id);
-    if (userToDelete?.role === "admin") {
-      setError("Không thể xóa tài khoản admin");
-      setTimeout(() => setError(""), 3000);
-      return;
-    }
-
-    if (!window.confirm("Bạn có chắc chắn muốn xóa người dùng này?")) {
-      return;
-    }
-
-    try {
-      const response = await axios({
-        method: "delete",
-        url: `https://student-info-be.onrender.com/api/users/${id}`,
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.data.success) {
-        setSuccess("Xóa người dùng thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        await refreshUsers();
-      } else {
-        setError(response.data.message || "Không thể xóa người dùng");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (err) {
-      console.error("Error deleting user:", err.response || err);
-      if (err.code === "ERR_NETWORK") {
-        setError("Không thể kết nối đến máy chủ");
-      } else if (err.response?.status === 401) {
-        window.location.href = "/login";
-      } else if (err.response?.status === 403) {
-        setError("Bạn không có quyền xóa người dùng");
-      } else {
-        setError(err.response?.data?.message || "Không thể xóa người dùng");
-      }
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const refreshDepartments = async () => {
-    const token = localStorage.getItem("token");
-    try {
-      const response = await axios.get(
-        "https://student-info-be.onrender.com/api/departments",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data && Array.isArray(response.data)) {
-        setMajors(response.data);
-      } else if (
-        response.data &&
-        response.data.data &&
-        Array.isArray(response.data.data)
-      ) {
-        setMajors(response.data.data);
-      } else if (
-        response.data &&
-        response.data.departments &&
-        Array.isArray(response.data.departments)
-      ) {
-        setMajors(response.data.departments);
-      }
-    } catch (err) {
-      console.error("Error refreshing departments:", err);
-      if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      }
-    }
-  };
-
-  const refreshUsers = async () => {
-    const token = localStorage.getItem("token");
-    try {
-      const response = await axios.get(
-        "https://student-info-be.onrender.com/api/users",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data && Array.isArray(response.data)) {
-        setUsers(response.data);
-      } else if (
-        response.data &&
-        response.data.data &&
-        Array.isArray(response.data.data)
-      ) {
-        setUsers(response.data.data);
-      } else if (
-        response.data &&
-        response.data.users &&
-        Array.isArray(response.data.users)
-      ) {
-        setUsers(response.data.users);
-      }
-    } catch (err) {
-      console.error("Error refreshing users:", err);
-      if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      }
-    }
-  };
-
-  const validateDatasetForm = (data) => {
-    const errors = {};
-    if (!data.key) errors.key = "Key là bắt buộc";
-    if (!data.value) errors.value = "Value là bắt buộc";
-    if (!data.category) errors.category = "Category là bắt buộc";
-    return errors;
-  };
-
-  const handleDatasetInputChange = (e) => {
-    const { name, value } = e.target;
-    if (showDatasetEditModal) {
-      setEditingDataset((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    } else {
-      setNewDataset((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
-    setDatasetFormErrors((prev) => ({ ...prev, [name]: "" }));
-  };
-
-  const handleDatasetSubmit = async (e) => {
-    e.preventDefault();
-    const errors = validateDatasetForm(newDataset);
-    if (Object.keys(errors).length > 0) {
-      setDatasetFormErrors(errors);
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-
-    if (!token || (user.role !== "admin" && user.role !== "coordinator")) {
-      window.location.href = "/login";
-      return;
-    }
-
-    try {
-      const datasetData = {
-        ...newDataset,
-        createdBy: user._id,
-        updatedBy: user._id,
-      };
-
-      const response = await axios.post(
-        "https://student-info-be.onrender.com/api/dataset",
-        datasetData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setSuccess("Thêm dataset thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        await refreshDatasets();
-        setNewDataset({ key: "", value: "", category: "", department: null });
-        setDatasetFormErrors({});
-      } else {
-        setError(response.data.message || "Không thể thêm dataset mới");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (err) {
-      console.error("Error adding dataset:", err.response || err);
-      if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      } else if (err.response?.status === 401) {
-        window.location.href = "/login";
-      } else {
-        setError(err.response?.data?.message || "Không thể thêm dataset mới");
-      }
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const handleDatasetEdit = (dataset) => {
-    setEditingDataset({ ...dataset });
-    setShowDatasetEditModal(true);
-    setDatasetFormErrors({});
-  };
-
-  const handleDatasetUpdate = async (e) => {
-    e.preventDefault();
-    const errors = validateDatasetForm(editingDataset);
-    if (Object.keys(errors).length > 0) {
-      setDatasetFormErrors(errors);
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-
-    if (!token || (user.role !== "admin" && user.role !== "coordinator")) {
-      window.location.href = "/login";
-      return;
-    }
-
-    try {
-      const datasetData = {
-        ...editingDataset,
-        updatedBy: user._id,
-      };
-
-      const response = await axios.put(
-        `https://student-info-be.onrender.com/api/dataset/${editingDataset._id}`,
-        datasetData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setSuccess("Cập nhật dataset thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        await refreshDatasets();
-        setShowDatasetEditModal(false);
-        setEditingDataset(null);
-        setDatasetFormErrors({});
-      } else {
-        setError(response.data.message || "Không thể cập nhật dataset");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (err) {
-      console.error("Error updating dataset:", err.response || err);
-      if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      } else if (err.response?.status === 401) {
-        window.location.href = "/login";
-      } else {
-        setError(err.response?.data?.message || "Không thể cập nhật dataset");
-      }
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const handleDatasetDelete = async (id) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa dataset này?")) {
-      return;
-    }
-
-    const token = localStorage.getItem("token");
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-
-    if (!token || (user.role !== "admin" && user.role !== "coordinator")) {
-      window.location.href = "/login";
-      return;
-    }
-
-    try {
-      const response = await axios.delete(
-        `https://student-info-be.onrender.com/api/dataset/${id}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setSuccess("Xóa dataset thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        await refreshDatasets();
-      } else {
-        setError(response.data.message || "Không thể xóa dataset");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (err) {
-      console.error("Error deleting dataset:", err.response || err);
-      if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      } else if (err.response?.status === 401) {
-        window.location.href = "/login";
-      } else {
-        setError(err.response?.data?.message || "Không thể xóa dataset");
-      }
-      setTimeout(() => setError(""), 3000);
-    }
-  };
-
-  const refreshDatasets = async () => {
-    const token = localStorage.getItem("token");
-    try {
-      const response = await axios.get(
-        "https://student-info-be.onrender.com/api/dataset",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data && Array.isArray(response.data)) {
-        setDatasets(response.data);
-      } else if (
-        response.data &&
-        response.data.data &&
-        Array.isArray(response.data.data)
-      ) {
-        setDatasets(response.data.data);
-      } else if (
-        response.data &&
-        response.data.datasets &&
-        Array.isArray(response.data.datasets)
-      ) {
-        setDatasets(response.data.datasets);
-      }
-    } catch (err) {
-      console.error("Error refreshing datasets:", err);
-      if (err.code === "ERR_NETWORK") {
-        setError(
-          "Không thể kết nối đến máy chủ. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau."
-        );
-      }
-    }
-  };
-
-  const handleCreateNotification = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Vui lòng đăng nhập lại");
-        return;
-      }
-
-      const response = await axios.post(
-        `${API_URL}/notifications`,
-        newNotification,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setSuccess("Tạo thông báo thành công!");
-        setTimeout(() => setSuccess(""), 3000); // Auto dismiss after 3 seconds
-        setShowNotificationForm(false);
-        setNewNotification({
-          title: "",
-          content: "",
-          type: "general",
-          department: "",
-          startDate: "",
-          endDate: "",
-          isImportant: false,
-        });
-        // Cập nhật lại danh sách thông báo
-        await fetchNotifications();
-      } else {
-        setError(response.data.message || "Không thể tạo thông báo");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (error) {
-      console.error("Error creating notification:", error);
-      if (error.response?.status === 401) {
-        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
-        }, 3000);
-      } else {
-        setError(error.response?.data?.message || "Không thể tạo thông báo");
-        setTimeout(() => setError(""), 3000);
-      }
-    }
-  };
-
-  const handleEditNotificationClick = (notification) => {
-    setEditingNotificationId(notification._id);
-    setEditNotification({
-      title: notification.title,
-      content: notification.content,
-      type: notification.type,
-      department: notification.department?._id || "",
-      startDate: notification.startDate
-        ? notification.startDate.slice(0, 16)
-        : "",
-      endDate: notification.endDate ? notification.endDate.slice(0, 16) : "",
-      isImportant: notification.isImportant || false,
-    });
-  };
-
-  const handleEditNotificationChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setEditNotification((prev) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
-  };
-
-  const handleUpdateNotification = async (e) => {
-    e.preventDefault();
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Vui lòng đăng nhập lại");
-        setTimeout(() => setError(""), 3000);
-        return;
-      }
-
-      const response = await axios.put(
-        `https://student-info-be.onrender.com/api/notifications/${editingNotificationId}`,
-        editNotification,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
-
-      if (response.data.success) {
-        setSuccess("Cập nhật thông báo thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        setEditingNotificationId(null);
-        setEditNotification({});
-        // Cập nhật lại danh sách thông báo
-        await fetchNotifications();
-      } else {
-        setError(response.data.message || "Không thể cập nhật thông báo");
-        setTimeout(() => setError(""), 3000);
-      }
-    } catch (error) {
-      console.error("Error updating notification:", error);
-      if (error.response?.status === 401) {
-        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
-        }, 3000);
-      } else {
-        setError(
-          error.response?.data?.message || "Không thể cập nhật thông báo"
-        );
-        setTimeout(() => setError(""), 3000);
-      }
-    }
-  };
-
-  const handleDeleteNotification = async (id) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa thông báo này?")) return;
-
-    try {
-      const token = localStorage.getItem("token");
-      if (!token) {
-        setError("Vui lòng đăng nhập lại");
-        return;
-      }
-
-      const response = await axios.delete(`${API_URL}/notifications/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (response.data.success) {
-        setSuccess("Xóa thông báo thành công!");
-        // Cập nhật lại danh sách thông báo
-        await fetchNotifications();
-      } else {
-        setError(response.data.message || "Không thể xóa thông báo");
-      }
-    } catch (error) {
-      console.error("Error deleting notification:", error);
-      if (error.response?.status === 401) {
-        setError("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
-        setTimeout(() => {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          window.location.href = "/login";
-        }, 3000);
-      } else if (error.response?.status === 403) {
-        setError("Bạn không có quyền xóa thông báo này");
-      } else if (error.response?.status === 404) {
-        setError("Không tìm thấy thông báo cần xóa");
-      } else {
-        setError(error.response?.data?.message || "Không thể xóa thông báo");
-      }
-    }
-  };
-
-  // Thêm useEffect để fetch thông báo khi component mount và khi activeTab thay đổi
   useEffect(() => {
     if (activeTab === "notifications_all") {
       fetchNotifications();
     } else if (activeTab === "notifications_saved") {
       fetchSavedNotifications();
+    } else if (activeTab === "events") {
+      fetchNotifications("event");
+    } else if (activeTab === "scholarships") {
+      fetchNotifications("scholarship");
+    } else if (activeTab === "dataset") {
+      fetchNotifications("dataset");
     }
-  }, [activeTab]);
+  }, [activeTab, filterType, filterDepartment]);
 
-  // Add useEffect to handle dark mode persistence
-  useEffect(() => {
-    const savedMode = localStorage.getItem("darkMode");
-    if (savedMode) {
-      setIsDarkMode(JSON.parse(savedMode));
+  const checkAuth = () => {
+    const token = localStorage.getItem("token");
+    const userData = JSON.parse(localStorage.getItem("user"));
+
+    if (!token) {
+      navigate("/login");
+      return;
     }
-  }, []);
 
-  // Add useEffect to update dark mode class
-  useEffect(() => {
-    if (isDarkMode) {
-      document.body.classList.add("dark-mode");
+    if (
+      userData &&
+      (userData.role === "admin" || userData.role === "coordinator")
+    ) {
+      setUser(userData);
+      setUserRole(userData.role);
     } else {
-      document.body.classList.remove("dark-mode");
+      setError(
+        "Không có quyền truy cập, chỉ Admin và Coordinator mới có quyền"
+      );
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000);
     }
-    localStorage.setItem("darkMode", JSON.stringify(isDarkMode));
-  }, [isDarkMode]);
-
-  // Add useEffect to fetch events when component mounts or activeTab changes
-  useEffect(() => {
-    if (activeTab === "events") {
-      fetchEvents();
-    }
-  }, [activeTab]);
-
-  const renderNotifications = () => (
-    <div className="notifications-section">
-      <div className="section-header">
-        <h2>Tất cả thông báo</h2>
-        <button
-          className="add-button"
-          onClick={() => setShowNotificationForm(true)}
-        >
-          <i className="fas fa-plus"></i> Tạo thông báo mới
-        </button>
-      </div>
-
-      <div className="notification-filters">
-        <select
-          value={notificationTypeFilter}
-          onChange={(e) => setNotificationTypeFilter(e.target.value)}
-        >
-          <option value="">Tất cả loại</option>
-          <option value="general">Chung</option>
-          <option value="scholarship">Học bổng</option>
-          <option value="event">Sự kiện</option>
-          <option value="department">Theo ngành</option>
-        </select>
-        <select
-          value={notificationDepartmentFilter}
-          onChange={(e) => setNotificationDepartmentFilter(e.target.value)}
-        >
-          <option value="">Tất cả ngành</option>
-          {majors.map((d) => (
-            <option key={d._id} value={d._id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-        <button
-          className="submit-button"
-          onClick={() => {
-            console.log("Filtering with:", {
-              notificationTypeFilter,
-              notificationDepartmentFilter,
-            });
-            fetchNotifications();
-          }}
-        >
-          Lọc
-        </button>
-      </div>
-
-      {showNotificationForm && (
-        <div className="modal">
-          <div className="modal-content">
-            <h2>Tạo thông báo mới</h2>
-            <form onSubmit={handleCreateNotification}>
-              <div className="form-group">
-                <label>Tiêu đề:</label>
-                <input
-                  type="text"
-                  value={newNotification.title}
-                  onChange={(e) =>
-                    setNewNotification({
-                      ...newNotification,
-                      title: e.target.value,
-                    })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Nội dung:</label>
-                <textarea
-                  value={newNotification.content}
-                  onChange={(e) =>
-                    setNewNotification({
-                      ...newNotification,
-                      content: e.target.value,
-                    })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Loại thông báo:</label>
-                <select
-                  value={newNotification.type}
-                  onChange={(e) =>
-                    setNewNotification({
-                      ...newNotification,
-                      type: e.target.value,
-                    })
-                  }
-                >
-                  <option value="general">Thông báo chung</option>
-                  <option value="scholarship">Học bổng</option>
-                  <option value="event">Sự kiện</option>
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Ngành (để trống nếu là thông báo chung):</label>
-                <select
-                  value={newNotification.department}
-                  onChange={(e) =>
-                    setNewNotification({
-                      ...newNotification,
-                      department: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Thông báo chung</option>
-                  {majors.map((major) => (
-                    <option key={major._id} value={major._id}>
-                      {major.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Ngày bắt đầu:</label>
-                <input
-                  type="datetime-local"
-                  value={newNotification.startDate}
-                  onChange={(e) =>
-                    setNewNotification({
-                      ...newNotification,
-                      startDate: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <label>Ngày kết thúc (không bắt buộc):</label>
-                <input
-                  type="datetime-local"
-                  value={newNotification.endDate}
-                  onChange={(e) =>
-                    setNewNotification({
-                      ...newNotification,
-                      endDate: e.target.value,
-                    })
-                  }
-                />
-              </div>
-              <div className="form-group">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={newNotification.isImportant}
-                    onChange={(e) =>
-                      setNewNotification({
-                        ...newNotification,
-                        isImportant: e.target.checked,
-                      })
-                    }
-                  />
-                  Thông báo quan trọng
-                </label>
-              </div>
-              <div className="modal-buttons">
-                <button type="submit" className="submit-button">
-                  Tạo thông báo
-                </button>
-                <button
-                  type="button"
-                  className="cancel-button"
-                  onClick={() => setShowNotificationForm(false)}
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <div className="notifications-list">
-        {notifications.length === 0 ? (
-          <div>Không có thông báo nào</div>
-        ) : (
-          notifications.map((notification) => {
-            const isSaved = savedNotifications.some(
-              (n) => n._id === notification._id
-            );
-            return (
-              <div className="notification-card" key={notification._id}>
-                <div className="notification-header">
-                  <h3>{notification.title}</h3>
-                  <span className={`notification-type ${notification.type}`}>
-                    {notification.type === "general"
-                      ? "Thông báo chung"
-                      : notification.type === "scholarship"
-                      ? "Học bổng"
-                      : notification.type === "event"
-                      ? "Sự kiện"
-                      : "Theo ngành"}
-                  </span>
-                </div>
-                <div className="notification-department">
-                  {notification.department && (
-                    <>
-                      <i className="fas fa-building"></i>{" "}
-                      {notification.department.name}
-                    </>
-                  )}
-                </div>
-                <div className="notification-content">
-                  {notification.content}
-                </div>
-                <div className="notification-footer">
-                  <span className="notification-time">
-                    <i className="fas fa-clock"></i>{" "}
-                    {new Date(notification.createdAt).toLocaleString()}
-                  </span>
-                  <div>
-                    {(user.role === "admin" || user.role === "coordinator") && (
-                      <>
-                        <button
-                          className="submit-button"
-                          onClick={() =>
-                            handleEditNotificationClick(notification)
-                          }
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          className="delete-button"
-                          onClick={() =>
-                            handleDeleteNotification(notification._id)
-                          }
-                        >
-                          Xóa
-                        </button>
-                      </>
-                    )}
-                    {user.role !== "admin" && (
-                      <button
-                        className="save-button"
-                        onClick={() =>
-                          isSaved
-                            ? handleUnsaveNotification(notification._id)
-                            : handleSaveNotification(notification._id)
-                        }
-                      >
-                        {isSaved ? "Bỏ lưu" : "Lưu"}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-
-  const renderSavedNotifications = () => (
-    <div className="notifications-section">
-      <div className="section-header">
-        <h2>Thông báo đã lưu</h2>
-      </div>
-      <div className="notifications-list">
-        {savedNotifications.length === 0 ? (
-          <div>Không có thông báo đã lưu</div>
-        ) : (
-          savedNotifications.map((notification) => (
-            <div className="notification-card" key={notification._id}>
-              <div className="notification-header">
-                <h3>{notification.title}</h3>
-                <span className={`notification-type ${notification.type}`}>
-                  {notification.type === "general"
-                    ? "Thông báo chung"
-                    : notification.type === "scholarship"
-                    ? "Học bổng"
-                    : notification.type === "event"
-                    ? "Sự kiện"
-                    : "Theo ngành"}
-                </span>
-              </div>
-              <div className="notification-department">
-                {notification.department && (
-                  <>
-                    <i className="fas fa-building"></i>{" "}
-                    {notification.department.name}
-                  </>
-                )}
-              </div>
-              <div className="notification-content">{notification.content}</div>
-              <div className="notification-footer">
-                <span className="notification-time">
-                  <i className="fas fa-clock"></i>{" "}
-                  {new Date(notification.createdAt).toLocaleString()}
-                </span>
-                <div>
-                  <button
-                    className="save-button"
-                    onClick={() => handleUnsaveNotification(notification._id)}
-                  >
-                    Bỏ lưu
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
-  );
-
-  const renderEvents = () => (
-    <div className="events-section">
-      <div className="section-header">
-        <h2>Quản lý sự kiện</h2>
-        {user.role === "admin" && (
-          <button className="add-button" onClick={() => setShowEventForm(true)}>
-            <i className="fas fa-plus"></i> Tạo sự kiện mới
-          </button>
-        )}
-      </div>
-
-      {showEventForm && (
-        <div className="modal">
-          <div className="modal-content">
-            <h2>Tạo sự kiện mới</h2>
-            <form onSubmit={handleCreateEvent}>
-              <div className="form-group">
-                <label>Tiêu đề:</label>
-                <input
-                  type="text"
-                  value={newEvent.title}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, title: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Mô tả:</label>
-                <textarea
-                  value={newEvent.description}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, description: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Địa điểm:</label>
-                <input
-                  type="text"
-                  value={newEvent.location}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, location: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Người tổ chức:</label>
-                <input
-                  type="text"
-                  value={newEvent.organizer}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, organizer: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Ngành:</label>
-                <select
-                  value={newEvent.department}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, department: e.target.value })
-                  }
-                >
-                  <option value="">Sự kiện chung</option>
-                  {majors.map((major) => (
-                    <option key={major._id} value={major._id}>
-                      {major.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Ngày bắt đầu:</label>
-                <input
-                  type="datetime-local"
-                  value={newEvent.startDate}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, startDate: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Ngày kết thúc:</label>
-                <input
-                  type="datetime-local"
-                  value={newEvent.endDate}
-                  onChange={(e) =>
-                    setNewEvent({ ...newEvent, endDate: e.target.value })
-                  }
-                  required
-                />
-              </div>
-              <div className="modal-buttons">
-                <button type="submit" className="submit-button">
-                  Tạo
-                </button>
-                <button
-                  type="button"
-                  className="cancel-button"
-                  onClick={() => setShowEventForm(false)}
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      <div className="event-filters">
-        <select
-          value={eventDepartmentFilter}
-          onChange={(e) => setEventDepartmentFilter(e.target.value)}
-        >
-          <option value="">Tất cả ngành</option>
-          {majors.map((d) => (
-            <option key={d._id} value={d._id}>
-              {d.name}
-            </option>
-          ))}
-        </select>
-        <button className="submit-button" onClick={fetchEvents}>
-          Lọc
-        </button>
-      </div>
-
-      <div className="events-list">
-        {events.length === 0 ? (
-          <div>Không có sự kiện nào</div>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Tiêu đề</th>
-                <th>Mô tả</th>
-                <th>Địa điểm</th>
-                <th>Người tổ chức</th>
-                <th>Ngành</th>
-                <th>Thời gian</th>
-                {user.role === "admin" && <th>Thao tác</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {events.map((event) => (
-                <tr key={event._id}>
-                  <td>{event.title}</td>
-                  <td>{event.description}</td>
-                  <td>{event.location}</td>
-                  <td>{event.organizer}</td>
-                  <td>{event.department ? event.department.name : "Chung"}</td>
-                  <td>
-                    {new Date(event.startDate).toLocaleString()} -{" "}
-                    {new Date(event.endDate).toLocaleString()}
-                  </td>
-                  {user.role === "admin" && (
-                    <td>
-                      <button
-                        className="edit-button"
-                        onClick={() => handleEditEventClick(event)}
-                      >
-                        Sửa
-                      </button>
-                      <button
-                        className="delete-button"
-                        onClick={() => handleDeleteEvent(event._id)}
-                      >
-                        Xóa
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {editingEventId && (
-        <div className="modal">
-          <div className="modal-content">
-            <h2>Sửa sự kiện</h2>
-            <form onSubmit={handleUpdateEvent}>
-              <div className="form-group">
-                <label>Tiêu đề:</label>
-                <input
-                  type="text"
-                  name="title"
-                  value={editEvent.title}
-                  onChange={handleEditEventChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Mô tả:</label>
-                <textarea
-                  name="description"
-                  value={editEvent.description}
-                  onChange={handleEditEventChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Địa điểm:</label>
-                <input
-                  type="text"
-                  name="location"
-                  value={editEvent.location}
-                  onChange={handleEditEventChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Người tổ chức:</label>
-                <input
-                  type="text"
-                  name="organizer"
-                  value={editEvent.organizer}
-                  onChange={handleEditEventChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Ngành:</label>
-                <select
-                  name="department"
-                  value={editEvent.department}
-                  onChange={handleEditEventChange}
-                >
-                  <option value="">Sự kiện chung</option>
-                  {majors.map((d) => (
-                    <option key={d._id} value={d._id}>
-                      {d.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-group">
-                <label>Ngày bắt đầu:</label>
-                <input
-                  type="datetime-local"
-                  name="startDate"
-                  value={editEvent.startDate}
-                  onChange={handleEditEventChange}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label>Ngày kết thúc:</label>
-                <input
-                  type="datetime-local"
-                  name="endDate"
-                  value={editEvent.endDate}
-                  onChange={handleEditEventChange}
-                  required
-                />
-              </div>
-              <div className="modal-buttons">
-                <button type="submit" className="submit-button">
-                  Lưu
-                </button>
-                <button
-                  type="button"
-                  className="cancel-button"
-                  onClick={() => {
-                    setEditingEventId(null);
-                    setEditEvent(null);
-                  }}
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderScholarships = () => {
-    return (
-      <div className="scholarships-section">
-        <div className="section-header">
-          <h2>Scholarships</h2>
-          {user.role === "admin" && (
-            <button
-              className="add-button"
-              onClick={() => {
-                setEditingScholarship(null);
-                setScholarshipFormData({
-                  title: "",
-                  description: "",
-                  requirements: "",
-                  value: "",
-                  applicationDeadline: "",
-                  provider: "",
-                  department: "",
-                  eligibility: "",
-                  applicationProcess: "",
-                });
-                setShowScholarshipForm(true);
-              }}
-            >
-              <i className="fas fa-plus"></i> Add Scholarship
-            </button>
-          )}
-        </div>
-
-        <div className="scholarship-list">
-          {scholarships.length === 0 ? (
-            <p>Không có học bổng nào</p>
-          ) : (
-            <table>
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Value</th>
-                  <th>Provider</th>
-                  <th>Department</th>
-                  <th>Deadline</th>
-                  {user.role === "admin" && <th>Actions</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {scholarships.map((scholarship) => (
-                  <tr key={scholarship._id}>
-                    <td>{scholarship.title}</td>
-                    <td>{scholarship.value}</td>
-                    <td>{scholarship.provider}</td>
-                    <td>{scholarship.department?.name || "All Departments"}</td>
-                    <td>
-                      {new Date(
-                        scholarship.applicationDeadline
-                      ).toLocaleDateString()}
-                    </td>
-                    {user.role === "admin" && (
-                      <td>
-                        <button
-                          className="edit-button"
-                          onClick={() => handleEditScholarship(scholarship)}
-                        >
-                          <i className="fas fa-edit"></i> Edit
-                        </button>
-                        <button
-                          className="delete-button"
-                          onClick={() =>
-                            handleDeleteScholarship(scholarship._id)
-                          }
-                        >
-                          <i className="fas fa-trash"></i> Delete
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {showScholarshipForm && (
-          <div className="modal">
-            <div className="modal-content">
-              <h2>
-                {editingScholarship
-                  ? "Edit Scholarship"
-                  : "Create New Scholarship"}
-              </h2>
-              <form
-                onSubmit={
-                  editingScholarship
-                    ? handleScholarshipSubmit
-                    : handleCreateScholarship
-                }
-              >
-                <div className="form-group">
-                  <label>Title</label>
-                  <input
-                    type="text"
-                    value={scholarshipFormData.title}
-                    onChange={handleScholarshipInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Description</label>
-                  <textarea
-                    value={scholarshipFormData.description}
-                    onChange={handleScholarshipInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Requirements</label>
-                  <textarea
-                    value={scholarshipFormData.requirements}
-                    onChange={handleScholarshipInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Value</label>
-                  <input
-                    type="text"
-                    value={scholarshipFormData.value}
-                    onChange={handleScholarshipInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Application Deadline</label>
-                  <input
-                    type="date"
-                    value={scholarshipFormData.applicationDeadline}
-                    onChange={handleScholarshipInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Provider</label>
-                  <input
-                    type="text"
-                    value={scholarshipFormData.provider}
-                    onChange={handleScholarshipInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Department</label>
-                  <select
-                    value={scholarshipFormData.department}
-                    onChange={handleScholarshipInputChange}
-                  >
-                    <option value="">All Departments</option>
-                    {majors.map((dept) => (
-                      <option key={dept._id} value={dept._id}>
-                        {dept.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Eligibility</label>
-                  <textarea
-                    value={scholarshipFormData.eligibility}
-                    onChange={handleScholarshipInputChange}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Application Process</label>
-                  <textarea
-                    value={scholarshipFormData.applicationProcess}
-                    onChange={handleScholarshipInputChange}
-                    required
-                  />
-                </div>
-                <div className="modal-buttons">
-                  <button type="submit" className="submit-button">
-                    {editingScholarship ? "Update" : "Create"}
-                  </button>
-                  <button
-                    type="button"
-                    className="cancel-button"
-                    onClick={() => {
-                      setShowScholarshipForm(false);
-                      setEditingScholarship(null);
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-      </div>
-    );
   };
 
-  if (loading) return <div className="loading">Loading...</div>;
+  const fetchDepartments = async () => {
+    try {
+      const response = await fetch(`${API_URL}/departments`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch departments");
+      const data = await response.json();
+      setDepartments(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Error fetching departments:", error);
+      setError("Không thể tải danh sách khoa");
+      setDepartments([]);
+    }
+  };
+
+  const fetchNotifications = async (
+    type = filterType,
+    department = filterDepartment
+  ) => {
+    try {
+      setLoading(true);
+      const data = await notificationService.fetchNotifications(
+        type,
+        department
+      );
+      setNotifications(data);
+      setError(null);
+    } catch (error) {
+      setError("Không thể tải danh sách thông báo");
+      console.error("Error fetching notifications:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSavedNotifications = async () => {
+    let retryCount = 0;
+    const maxRetries = 3;
+    const retryDelay = 2000; // 2 seconds delay between retries
+
+    const tryFetch = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await notificationService.fetchSavedNotifications();
+        if (Array.isArray(data)) {
+          setSavedNotifications(data);
+          return true;
+        }
+        console.error("Invalid data format received:", data);
+        return false;
+      } catch (error) {
+        console.error(`Attempt ${retryCount + 1} failed:`, error);
+        return false;
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    while (retryCount < maxRetries) {
+      const success = await tryFetch();
+      if (success) {
+        return;
+      }
+      retryCount++;
+      if (retryCount < maxRetries) {
+        console.log(
+          `Retrying in ${retryDelay / 1000} seconds... (Attempt ${
+            retryCount + 1
+          }/${maxRetries})`
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryDelay));
+      }
+    }
+
+    // If all retries failed
+    setError("Không thể tải danh sách thông báo đã lưu. Vui lòng thử lại sau.");
+    setSavedNotifications([]);
+  };
+
+  const handleSaveNotification = async (notificationId) => {
+    try {
+      setError(null);
+      await notificationService.saveNotification(notificationId);
+      setSuccessMessage("Đã lưu thông báo thành công");
+
+      // Update notifications state
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((notification) =>
+          notification._id === notificationId
+            ? { ...notification, isSaved: true }
+            : notification
+        )
+      );
+
+      // Add to saved notifications if not already present
+      const notificationToSave = notifications.find(
+        (n) => n._id === notificationId
+      );
+      if (
+        notificationToSave &&
+        !savedNotifications.some((n) => n._id === notificationId)
+      ) {
+        setSavedNotifications((prev) => [
+          ...prev,
+          { ...notificationToSave, isSaved: true },
+        ]);
+      }
+
+      // Fetch saved notifications to ensure consistency
+      await fetchSavedNotifications();
+    } catch (error) {
+      console.error("Error saving notification:", error);
+      setError("Không thể lưu thông báo. Vui lòng thử lại sau.");
+    }
+  };
+
+  const handleUnsaveNotification = async (notificationId) => {
+    try {
+      await notificationService.unsaveNotification(notificationId);
+      setSuccessMessage("Đã bỏ lưu thông báo thành công");
+
+      // Update notifications state
+      setNotifications((prevNotifications) =>
+        prevNotifications.map((notification) =>
+          notification._id === notificationId
+            ? { ...notification, isSaved: false }
+            : notification
+        )
+      );
+
+      // Remove from saved notifications
+      setSavedNotifications((prev) =>
+        prev.filter((notification) => notification._id !== notificationId)
+      );
+    } catch (error) {
+      setError("Không thể bỏ lưu thông báo");
+      console.error("Error unsaving notification:", error);
+    }
+  };
+
+  const handleEditNotification = async (notification) => {
+    try {
+      // Navigate to edit page with notification data
+      navigate(`/edit-notification/${notification._id}`, {
+        state: {
+          notification: {
+            ...notification,
+            type: notification.type || "event", // Default to event if type is not set
+            department: notification.department || "",
+            title: notification.title || "",
+            content: notification.content || "",
+            startDate: notification.startDate || "",
+            endDate: notification.endDate || "",
+            location: notification.location || "",
+            contact: notification.contact || "",
+            requirements: notification.requirements || "",
+            benefits: notification.benefits || "",
+            applicationProcess: notification.applicationProcess || "",
+            deadline: notification.deadline || "",
+            datasetUrl: notification.datasetUrl || "",
+            datasetDescription: notification.datasetDescription || "",
+          },
+        },
+      });
+    } catch (error) {
+      setError("Không thể chỉnh sửa thông báo");
+      console.error("Error editing notification:", error);
+    }
+  };
+
+  const handleDeleteNotification = async (notificationId) => {
+    try {
+      await notificationService.deleteNotification(notificationId);
+      setSuccessMessage("Đã xóa thông báo thành công");
+
+      // Update notifications state
+      setNotifications((prevNotifications) =>
+        prevNotifications.filter(
+          (notification) => notification._id !== notificationId
+        )
+      );
+
+      // Remove from saved notifications if present
+      setSavedNotifications((prev) =>
+        prev.filter((notification) => notification._id !== notificationId)
+      );
+    } catch (error) {
+      setError("Không thể xóa thông báo");
+      console.error("Error deleting notification:", error);
+    }
+  };
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setError(null);
+    setSuccessMessage(null);
+    setFilterType(""); // Reset filter when changing tabs
+    setFilterDepartment(""); // Reset department filter when changing tabs
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "notifications_all":
+        return (
+          <>
+            <NotificationFilter
+              filterType={filterType}
+              setFilterType={setFilterType}
+              filterDepartment={filterDepartment}
+              setFilterDepartment={setFilterDepartment}
+              departments={departments}
+            />
+            <NotificationList
+              notifications={notifications}
+              savedNotifications={savedNotifications}
+              userRole={userRole}
+              onEdit={handleEditNotification}
+              onDelete={handleDeleteNotification}
+              onSave={handleSaveNotification}
+              onUnsave={handleUnsaveNotification}
+            />
+          </>
+        );
+      case "notifications_saved":
+        return (
+          <NotificationList
+            notifications={savedNotifications}
+            savedNotifications={savedNotifications}
+            userRole={userRole}
+            onEdit={handleEditNotification}
+            onDelete={handleDeleteNotification}
+            onSave={handleSaveNotification}
+            onUnsave={handleUnsaveNotification}
+          />
+        );
+      case "events":
+      case "scholarships":
+      case "dataset":
+        return (
+          <>
+            <NotificationFilter
+              filterType={filterType}
+              setFilterType={setFilterType}
+              filterDepartment={filterDepartment}
+              setFilterDepartment={setFilterDepartment}
+              departments={departments}
+            />
+            <NotificationList
+              notifications={notifications}
+              savedNotifications={savedNotifications}
+              userRole={userRole}
+              onEdit={handleEditNotification}
+              onDelete={handleDeleteNotification}
+              onSave={handleSaveNotification}
+              onUnsave={handleUnsaveNotification}
+            />
+          </>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className={`admin-container ${isDarkMode ? "dark-mode" : ""}`}>
-      <div className="admin-header">
-        <h1>Quản Lý Hệ Thống</h1>
-        <div className="admin-tabs">
-          <button
-            className={`tab-button ${
-              activeTab === "notifications_all" ? "active" : ""
-            }`}
-            onClick={() => {
-              setActiveTab("notifications_all");
-              fetchNotifications();
-            }}
-          >
-            Tất cả thông báo
-          </button>
-          <button
-            className={`tab-button ${
-              activeTab === "notifications_saved" ? "active" : ""
-            }`}
-            onClick={() => {
-              setActiveTab("notifications_saved");
-              fetchSavedNotifications();
-            }}
-          >
-            Thông báo đã lưu
-          </button>
-          <button
-            className={`tab-button ${activeTab === "events" ? "active" : ""}`}
-            onClick={() => setActiveTab("events")}
-          >
-            Sự Kiện
-          </button>
-          <button
-            className={`tab-button ${
-              activeTab === "scholarships" ? "active" : ""
-            }`}
-            onClick={() => setActiveTab("scholarships")}
-          >
-            Học Bổng
-          </button>
-        </div>
-        <div className="header-right">
-          <button
-            className="theme-toggle"
-            onClick={() => setIsDarkMode(!isDarkMode)}
-          >
-            <i className={`fas fa-${isDarkMode ? "sun" : "moon"}`}></i>
-            {isDarkMode ? " Light Mode" : " Dark Mode"}
-          </button>
-          <button
-            className="logout-button"
-            onClick={() => {
-              localStorage.removeItem("token");
-              localStorage.removeItem("user");
-              navigate("/login");
-            }}
-          >
-            Đăng xuất
-          </button>
-        </div>
+    <div className={`coordinator-page ${isDarkMode ? "dark-mode" : ""}`}>
+      <Header
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        isDarkMode={isDarkMode}
+        setIsDarkMode={setIsDarkMode}
+        onTabChange={handleTabChange}
+      />
+
+      <div className="coordinator-content">
+        {error && <div className="error-message">{error}</div>}
+        {successMessage && (
+          <div className="success-message">{successMessage}</div>
+        )}
+        {renderContent()}
+        {loading && <div className="loading">Đang tải...</div>}
       </div>
-
-      {error && <div className="error-message">{error}</div>}
-      {success && (
-        <div className="alert alert-success">
-          {success}
-          <button onClick={() => setSuccess("")} className="close-btn">
-            ×
-          </button>
-        </div>
-      )}
-
-      <div className="tab-content">
-        {activeTab === "notifications_all" && renderNotifications()}
-        {activeTab === "notifications_saved" && renderSavedNotifications()}
-        {activeTab === "events" && renderEvents()}
-        {activeTab === "scholarships" && renderScholarships()}
-      </div>
-
-      {/* Add/Edit Department Modal */}
-      {showEditModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <h2>{editingMajor ? "Sửa Ngành Học" : "Thêm Ngành Học Mới"}</h2>
-            <form onSubmit={editingMajor ? handleUpdate : handleSubmit}>
-              <div className="form-group">
-                <label>Tên ngành:</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={editingMajor ? editingMajor.name : newMajor.name}
-                  onChange={handleInputChange}
-                  className={formErrors.name ? "error" : ""}
-                />
-                {formErrors.name && (
-                  <span className="error-text">{formErrors.name}</span>
-                )}
-              </div>
-              <div className="form-group">
-                <label>Mã ngành:</label>
-                <input
-                  type="text"
-                  name="code"
-                  value={editingMajor ? editingMajor.code : newMajor.code}
-                  onChange={handleInputChange}
-                  className={formErrors.code ? "error" : ""}
-                />
-                {formErrors.code && (
-                  <span className="error-text">{formErrors.code}</span>
-                )}
-              </div>
-              <div className="form-group">
-                <label>Mô tả:</label>
-                <textarea
-                  name="description"
-                  value={
-                    editingMajor
-                      ? editingMajor.description
-                      : newMajor.description
-                  }
-                  onChange={handleInputChange}
-                  className={formErrors.description ? "error" : ""}
-                />
-                {formErrors.description && (
-                  <span className="error-text">{formErrors.description}</span>
-                )}
-              </div>
-              <div className="modal-buttons">
-                <button type="submit" className="submit-button">
-                  {editingMajor ? "Lưu" : "Thêm"}
-                </button>
-                <button
-                  type="button"
-                  className="cancel-button"
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingMajor(null);
-                    setNewMajor({ name: "", code: "", description: "" });
-                    setFormErrors({});
-                  }}
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showUserEditModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <h2>Sửa Người Dùng</h2>
-            <form onSubmit={handleUserUpdate}>
-              <div className="form-group">
-                <label>Tên:</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={editingUser.name}
-                  onChange={(e) =>
-                    setEditingUser({ ...editingUser, name: e.target.value })
-                  }
-                  className={userFormErrors.name ? "error" : ""}
-                />
-                {userFormErrors.name && (
-                  <span className="error-text">{userFormErrors.name}</span>
-                )}
-              </div>
-              <div className="form-group">
-                <label>Email:</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={editingUser.email}
-                  onChange={(e) =>
-                    setEditingUser({ ...editingUser, email: e.target.value })
-                  }
-                  className={userFormErrors.email ? "error" : ""}
-                />
-                {userFormErrors.email && (
-                  <span className="error-text">{userFormErrors.email}</span>
-                )}
-              </div>
-              <div className="form-group">
-                <label>Vai trò:</label>
-                <select
-                  name="role"
-                  value={editingUser.role}
-                  onChange={(e) =>
-                    setEditingUser({ ...editingUser, role: e.target.value })
-                  }
-                  className={userFormErrors.role ? "error" : ""}
-                >
-                  <option value="student">Sinh viên</option>
-                  <option value="coordinator">Người phụ trách</option>
-                  <option value="admin">Admin</option>
-                </select>
-                {userFormErrors.role && (
-                  <span className="error-text">{userFormErrors.role}</span>
-                )}
-              </div>
-              <div className="modal-buttons">
-                <button type="submit" className="submit-button">
-                  Lưu
-                </button>
-                <button
-                  type="button"
-                  className="cancel-button"
-                  onClick={() => {
-                    setShowUserEditModal(false);
-                    setEditingUser(null);
-                    setUserFormErrors({});
-                  }}
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showDatasetEditModal && (
-        <div className="modal">
-          <div className="modal-content">
-            <h2>{editingDataset ? "Sửa Dataset" : "Thêm Dataset Mới"}</h2>
-            <form
-              onSubmit={
-                editingDataset ? handleDatasetUpdate : handleDatasetSubmit
-              }
-            >
-              <div className="form-group">
-                <label>Key:</label>
-                <input
-                  type="text"
-                  name="key"
-                  value={editingDataset ? editingDataset.key : newDataset.key}
-                  onChange={handleDatasetInputChange}
-                  className={datasetFormErrors.key ? "error" : ""}
-                />
-                {datasetFormErrors.key && (
-                  <span className="error-text">{datasetFormErrors.key}</span>
-                )}
-              </div>
-              <div className="form-group">
-                <label>Value:</label>
-                <textarea
-                  name="value"
-                  value={
-                    editingDataset ? editingDataset.value : newDataset.value
-                  }
-                  onChange={handleDatasetInputChange}
-                  className={datasetFormErrors.value ? "error" : ""}
-                />
-                {datasetFormErrors.value && (
-                  <span className="error-text">{datasetFormErrors.value}</span>
-                )}
-              </div>
-              <div className="form-group">
-                <label>Category:</label>
-                <select
-                  name="category"
-                  value={
-                    editingDataset
-                      ? editingDataset.category
-                      : newDataset.category
-                  }
-                  onChange={handleDatasetInputChange}
-                  className={datasetFormErrors.category ? "error" : ""}
-                >
-                  <option value="">Chọn category</option>
-                  <option value="general">General</option>
-                  <option value="scholarship">Scholarship</option>
-                  <option value="event">Event</option>
-                  <option value="department">Department</option>
-                  <option value="faq">FAQ</option>
-                </select>
-                {datasetFormErrors.category && (
-                  <span className="error-text">
-                    {datasetFormErrors.category}
-                  </span>
-                )}
-              </div>
-              <div className="form-group">
-                <label>Department:</label>
-                <select
-                  name="department"
-                  value={
-                    editingDataset
-                      ? editingDataset.department
-                      : newDataset.department
-                  }
-                  onChange={handleDatasetInputChange}
-                >
-                  <option value="">Không có</option>
-                  {majors.map((major) => (
-                    <option key={major._id} value={major._id}>
-                      {major.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="modal-buttons">
-                <button type="submit" className="submit-button">
-                  {editingDataset ? "Lưu" : "Thêm"}
-                </button>
-                <button
-                  type="button"
-                  className="cancel-button"
-                  onClick={() => {
-                    setShowDatasetEditModal(false);
-                    setEditingDataset(null);
-                    setNewDataset({
-                      key: "",
-                      value: "",
-                      category: "",
-                      department: null,
-                    });
-                    setDatasetFormErrors({});
-                  }}
-                >
-                  Hủy
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

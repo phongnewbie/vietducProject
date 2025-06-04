@@ -471,7 +471,7 @@ const AdminPage = () => {
           err.response?.data?.message || "Không thể tải danh sách sự kiện"
         );
       }
-        setTimeout(() => setError(""), 3000);
+      setTimeout(() => setError(""), 3000);
     }
   };
 
@@ -509,10 +509,10 @@ const AdminPage = () => {
       console.log("Creating event with data:", newEvent); // Debug log
 
       const response = await axios.post(`${API_URL}/events`, newEvent, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
 
       console.log("Create event response:", response.data); // Debug log
@@ -550,8 +550,8 @@ const AdminPage = () => {
           window.location.href = "/login";
         }, 3000);
       } else {
-      setError(err.response?.data?.message || "Không thể tạo sự kiện");
-      setTimeout(() => setError(""), 3000);
+        setError(err.response?.data?.message || "Không thể tạo sự kiện");
+        setTimeout(() => setError(""), 3000);
       }
     }
   };
@@ -1752,7 +1752,7 @@ const AdminPage = () => {
     setEditNotification({
       title: notification.title,
       content: notification.content,
-      type: notification.type,
+      type: notification.type || "general",
       department: notification.department?._id || "",
       startDate: notification.startDate
         ? notification.startDate.slice(0, 16)
@@ -1796,7 +1796,6 @@ const AdminPage = () => {
         setTimeout(() => setSuccess(""), 3000);
         setEditingNotificationId(null);
         setEditNotification({});
-        // Cập nhật lại danh sách thông báo
         await fetchNotifications();
       } else {
         setError(response.data.message || "Không thể cập nhật thông báo");
@@ -1831,10 +1830,10 @@ const AdminPage = () => {
       }
 
       const response = await axios.delete(`${API_URL}/notifications/${id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
       });
 
       if (response.data.success) {
@@ -3192,6 +3191,106 @@ const AdminPage = () => {
                       department: null,
                     });
                     setDatasetFormErrors({});
+                  }}
+                >
+                  Hủy
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {editingNotificationId && (
+        <div className="modal">
+          <div className="modal-content">
+            <h2>Sửa thông báo</h2>
+            <form onSubmit={handleUpdateNotification}>
+              <div className="form-group">
+                <label>Tiêu đề:</label>
+                <input
+                  type="text"
+                  name="title"
+                  value={editNotification.title}
+                  onChange={handleEditNotificationChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Nội dung:</label>
+                <textarea
+                  name="content"
+                  value={editNotification.content}
+                  onChange={handleEditNotificationChange}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label>Loại thông báo:</label>
+                <select
+                  name="type"
+                  value={editNotification.type}
+                  onChange={handleEditNotificationChange}
+                >
+                  <option value="general">Thông báo chung</option>
+                  <option value="scholarship">Học bổng</option>
+                  <option value="event">Sự kiện</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Ngành (để trống nếu là thông báo chung):</label>
+                <select
+                  name="department"
+                  value={editNotification.department}
+                  onChange={handleEditNotificationChange}
+                >
+                  <option value="">Thông báo chung</option>
+                  {majors.map((major) => (
+                    <option key={major._id} value={major._id}>
+                      {major.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Ngày bắt đầu:</label>
+                <input
+                  type="datetime-local"
+                  name="startDate"
+                  value={editNotification.startDate}
+                  onChange={handleEditNotificationChange}
+                />
+              </div>
+              <div className="form-group">
+                <label>Ngày kết thúc (không bắt buộc):</label>
+                <input
+                  type="datetime-local"
+                  name="endDate"
+                  value={editNotification.endDate}
+                  onChange={handleEditNotificationChange}
+                />
+              </div>
+              <div className="form-group">
+                <label>
+                  <input
+                    type="checkbox"
+                    name="isImportant"
+                    checked={editNotification.isImportant}
+                    onChange={handleEditNotificationChange}
+                  />
+                  Thông báo quan trọng
+                </label>
+              </div>
+              <div className="modal-buttons">
+                <button type="submit" className="submit-button">
+                  Lưu
+                </button>
+                <button
+                  type="button"
+                  className="cancel-button"
+                  onClick={() => {
+                    setEditingNotificationId(null);
+                    setEditNotification({});
                   }}
                 >
                   Hủy

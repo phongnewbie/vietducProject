@@ -54,49 +54,29 @@ const MainPage = () => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
           },
         }
       );
 
-      console.log("Raw notifications response:", response); // Debug log
-      console.log("Notifications response data:", response.data); // Debug log
+      console.log("Notifications response:", response.data); // Debug log
 
       let notificationsData = [];
-
-      // Check if response has data property
-      if (response.data?.data) {
+      if (response.data?.data && Array.isArray(response.data.data)) {
         notificationsData = response.data.data;
-      }
-      // Check if response is an array
-      else if (Array.isArray(response.data)) {
+      } else if (Array.isArray(response.data)) {
         notificationsData = response.data;
-      }
-      // Check if response has notifications property
-      else if (response.data?.notifications) {
+      } else if (
+        response.data?.notifications &&
+        Array.isArray(response.data.notifications)
+      ) {
         notificationsData = response.data.notifications;
-      }
-      // Check if response has success property and data
-      else if (response.data?.success && response.data?.data) {
-        notificationsData = response.data.data;
       }
 
       console.log("Processed notifications:", notificationsData); // Debug log
 
-      if (notificationsData && notificationsData.length > 0) {
-        // Sort notifications by createdAt
-        notificationsData.sort((a, b) => {
-          const dateA = new Date(a.createdAt || a.created_at);
-          const dateB = new Date(b.createdAt || b.created_at);
-          return dateB - dateA;
-        });
-
-        // Update notifications state
+      if (notificationsData.length > 0) {
         setNotifications(notificationsData);
-
-        // Calculate unread count
         const unread = notificationsData.filter((n) => !n.isRead).length;
-        console.log("Unread count:", unread); // Debug log
         setUnreadCount(unread);
       } else {
         console.log("No notifications found");
@@ -107,29 +87,15 @@ const MainPage = () => {
       console.error("Error fetching notifications:", error);
       if (error.response) {
         console.error("Error response:", error.response.data);
-        console.error("Error status:", error.response.status);
-        if (error.response.status === 401) {
-          // Token expired or invalid
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
-          navigate("/login");
-          return;
-        }
       }
       setError("Không thể tải thông báo. Vui lòng thử lại sau.");
-      setNotifications([]);
-      setUnreadCount(0);
     }
   };
 
   useEffect(() => {
-    console.log("Setting up notification polling..."); // Debug log
     fetchNotifications();
-    const interval = setInterval(fetchNotifications, 60000); // Poll every minute
-    return () => {
-      console.log("Cleaning up notification polling..."); // Debug log
-      clearInterval(interval);
-    };
+    const interval = setInterval(fetchNotifications, 60000);
+    return () => clearInterval(interval);
   }, []);
 
   const fetchChatHistory = async () => {

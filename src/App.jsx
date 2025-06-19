@@ -8,7 +8,7 @@ import {
 import Login from "./Login/Login";
 import Register from "./Register/Register";
 import MainPage from "./mainpage/MainPage";
-import AdminPage from "./pages/AdminPage";
+import AdminPage from "./components/AdminPage/AdminPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 const App = () => {

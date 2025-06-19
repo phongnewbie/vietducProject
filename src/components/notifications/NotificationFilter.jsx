@@ -1,4 +1,5 @@
 import React from "react";
+import "./NotificationList.css";
 
 const NotificationFilter = ({
   filterType,

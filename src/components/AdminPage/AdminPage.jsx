@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./AdminPage.css";
-import "../styles/theme.css";
+
 import { useNavigate } from "react-router-dom";
 
 // Add these constants at the top of the file
@@ -113,6 +113,8 @@ const AdminPage = () => {
     department: "",
     priority: "normal",
   });
+
+  const [showDatasetModal, setShowDatasetModal] = useState(false);
 
   useEffect(() => {
     const checkAuth = () => {
@@ -957,7 +959,8 @@ const AdminPage = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    if (showEditModal) {
+    if (editingMajor) {
+      // Kiểm tra editingMajor thay vì showEditModal
       setEditingMajor((prev) => ({
         ...prev,
         [name]: value,
@@ -968,7 +971,6 @@ const AdminPage = () => {
         [name]: value,
       }));
     }
-    // Clear error when user starts typing
     setFormErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
@@ -1004,9 +1006,14 @@ const AdminPage = () => {
       console.log("Add department response:", response.data);
       setSuccess("Thêm ngành học thành công!");
       setTimeout(() => setSuccess(""), 3000);
-      await refreshDepartments();
+
+      // Đóng modal và reset form trước khi refresh data
+      setShowEditModal(false);
       setNewMajor({ name: "", code: "", description: "" });
       setFormErrors({});
+
+      // Refresh data sau khi đã reset form
+      await refreshDepartments();
     } catch (err) {
       console.error("Error adding department:", err.response || err);
       if (err.code === "ERR_NETWORK") {
@@ -1386,6 +1393,7 @@ const AdminPage = () => {
   const refreshDepartments = async () => {
     const token = localStorage.getItem("token");
     try {
+      console.log("Refreshing departments...");
       const response = await axios.get(
         "https://student-info-be.onrender.com/api/departments",
         {
@@ -1396,21 +1404,22 @@ const AdminPage = () => {
         }
       );
 
+      console.log("Departments response:", response.data);
+
+      let departmentsData = [];
       if (response.data && Array.isArray(response.data)) {
-        setMajors(response.data);
+        departmentsData = response.data;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        departmentsData = response.data.data;
       } else if (
-        response.data &&
-        response.data.data &&
-        Array.isArray(response.data.data)
-      ) {
-        setMajors(response.data.data);
-      } else if (
-        response.data &&
-        response.data.departments &&
+        response.data?.departments &&
         Array.isArray(response.data.departments)
       ) {
-        setMajors(response.data.departments);
+        departmentsData = response.data.departments;
       }
+
+      console.log("Setting departments data:", departmentsData);
+      setMajors(departmentsData);
     } catch (err) {
       console.error("Error refreshing departments:", err);
       if (err.code === "ERR_NETWORK") {
@@ -1464,29 +1473,34 @@ const AdminPage = () => {
     if (!data.key) errors.key = "Key là bắt buộc";
     if (!data.value) errors.value = "Value là bắt buộc";
     if (!data.category) errors.category = "Category là bắt buộc";
+    if (!data.department) errors.department = "Department là bắt buộc";
     return errors;
   };
 
   const handleDatasetInputChange = (e) => {
     const { name, value } = e.target;
-    if (showDatasetEditModal) {
-      setEditingDataset((prev) => ({
+    console.log("Dataset input change:", name, value);
+    setNewDataset((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    // Clear error when user starts typing
+    if (datasetFormErrors[name]) {
+      setDatasetFormErrors((prev) => ({
         ...prev,
-        [name]: value,
-      }));
-    } else {
-      setNewDataset((prev) => ({
-        ...prev,
-        [name]: value,
+        [name]: "",
       }));
     }
-    setDatasetFormErrors((prev) => ({ ...prev, [name]: "" }));
   };
 
   const handleDatasetSubmit = async (e) => {
     e.preventDefault();
+    console.log("Submitting new dataset:", newDataset);
+
+    // Validate form
     const errors = validateDatasetForm(newDataset);
     if (Object.keys(errors).length > 0) {
+      console.log("Form validation errors:", errors);
       setDatasetFormErrors(errors);
       return;
     }
@@ -1494,18 +1508,20 @@ const AdminPage = () => {
     const token = localStorage.getItem("token");
     const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-    if (!token || (user.role !== "admin" && user.role !== "coordinator")) {
+    if (!token || user.role !== "admin") {
       window.location.href = "/login";
       return;
     }
 
     try {
+      // Prepare data for submission
       const datasetData = {
         ...newDataset,
         createdBy: user._id,
         updatedBy: user._id,
       };
 
+      console.log("Sending dataset data:", datasetData);
       const response = await axios.post(
         "https://student-info-be.onrender.com/api/dataset",
         datasetData,
@@ -1517,16 +1533,17 @@ const AdminPage = () => {
         }
       );
 
-      if (response.data.success) {
-        setSuccess("Thêm dataset thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        await refreshDatasets();
-        setNewDataset({ key: "", value: "", category: "", department: null });
-        setDatasetFormErrors({});
-      } else {
-        setError(response.data.message || "Không thể thêm dataset mới");
-        setTimeout(() => setError(""), 3000);
-      }
+      console.log("Add dataset response:", response.data);
+      setSuccess("Thêm dataset thành công!");
+      setTimeout(() => setSuccess(""), 3000);
+
+      // Reset form and close modal
+      setShowDatasetEditModal(false);
+      setNewDataset({ key: "", value: "", category: "", department: "" });
+      setDatasetFormErrors({});
+
+      // Refresh data
+      await refreshDatasets();
     } catch (err) {
       console.error("Error adding dataset:", err.response || err);
       if (err.code === "ERR_NETWORK") {
@@ -1542,16 +1559,61 @@ const AdminPage = () => {
     }
   };
 
+  const handleDatasetEditChange = (e) => {
+    const { name, value } = e.target;
+    console.log("Dataset edit change:", name, value);
+
+    // Tạo một bản sao mới của editingDataset
+    const updatedDataset = {
+      ...editingDataset,
+      [name]: value,
+    };
+
+    console.log("Updated editing dataset:", updatedDataset);
+    setEditingDataset(updatedDataset);
+
+    // Clear error when user starts typing
+    if (datasetFormErrors[name]) {
+      setDatasetFormErrors((prev) => ({
+        ...prev,
+        [name]: "",
+      }));
+    }
+  };
+
   const handleDatasetEdit = (dataset) => {
-    setEditingDataset({ ...dataset });
-    setShowDatasetEditModal(true);
-    setDatasetFormErrors({});
+    console.log("Editing dataset:", dataset);
+    if (!dataset || !dataset._id) {
+      console.error("Invalid dataset object:", dataset);
+      setError("Không thể chỉnh sửa dataset. Dữ liệu không hợp lệ.");
+      return;
+    }
+    // Tạo một bản sao của dataset để tránh thay đổi trực tiếp state
+    const datasetCopy = {
+      _id: dataset._id,
+      key: dataset.key || "",
+      value: dataset.value || "",
+      category: dataset.category || "",
+      department: dataset.department || "",
+    };
+    console.log("Setting editing dataset:", datasetCopy);
+    setEditingDataset(datasetCopy);
+    setShowDatasetModal(true);
   };
 
   const handleDatasetUpdate = async (e) => {
     e.preventDefault();
+    console.log("Updating dataset:", editingDataset);
+
+    if (!editingDataset || !editingDataset._id) {
+      console.error("Invalid editing dataset:", editingDataset);
+      setError("Không thể cập nhật dataset. ID không hợp lệ.");
+      return;
+    }
+
     const errors = validateDatasetForm(editingDataset);
     if (Object.keys(errors).length > 0) {
+      console.log("Form validation errors:", errors);
       setDatasetFormErrors(errors);
       return;
     }
@@ -1559,17 +1621,22 @@ const AdminPage = () => {
     const token = localStorage.getItem("token");
     const user = JSON.parse(localStorage.getItem("user") || "{}");
 
-    if (!token || (user.role !== "admin" && user.role !== "coordinator")) {
+    if (!token || user.role !== "admin") {
       window.location.href = "/login";
       return;
     }
 
     try {
+      // Prepare data for update
       const datasetData = {
-        ...editingDataset,
+        key: editingDataset.key,
+        value: editingDataset.value,
+        category: editingDataset.category,
+        department: editingDataset.department,
         updatedBy: user._id,
       };
 
+      console.log("Sending update request for dataset:", datasetData);
       const response = await axios.put(
         `https://student-info-be.onrender.com/api/dataset/${editingDataset._id}`,
         datasetData,
@@ -1581,17 +1648,17 @@ const AdminPage = () => {
         }
       );
 
-      if (response.data.success) {
-        setSuccess("Cập nhật dataset thành công!");
-        setTimeout(() => setSuccess(""), 3000);
-        await refreshDatasets();
-        setShowDatasetEditModal(false);
-        setEditingDataset(null);
-        setDatasetFormErrors({});
-      } else {
-        setError(response.data.message || "Không thể cập nhật dataset");
-        setTimeout(() => setError(""), 3000);
-      }
+      console.log("Update response:", response.data);
+      setSuccess("Cập nhật dataset thành công!");
+      setTimeout(() => setSuccess(""), 3000);
+
+      // Reset form and close modal
+      setShowDatasetEditModal(false);
+      setEditingDataset(null);
+      setDatasetFormErrors({});
+
+      // Refresh data
+      await refreshDatasets();
     } catch (err) {
       console.error("Error updating dataset:", err.response || err);
       if (err.code === "ERR_NETWORK") {
@@ -2791,7 +2858,12 @@ const AdminPage = () => {
               <h2>Danh Sách Ngành Học</h2>
               <button
                 className="add-button"
-                onClick={() => setShowEditModal(true)}
+                onClick={() => {
+                  setShowEditModal(true);
+                  setEditingMajor(null); // Reset editingMajor
+                  setNewMajor({ name: "", code: "", description: "" }); // Reset form
+                  setFormErrors({});
+                }}
               >
                 <i className="fas fa-plus"></i> Thêm Ngành Mới
               </button>
@@ -2954,7 +3026,7 @@ const AdminPage = () => {
       {showEditModal && (
         <div className="modal">
           <div className="modal-content">
-            <h2>{editingMajor ? "Sửa Ngành Học" : "Thêm Ngành Học Mới"}</h2>
+            <h2>{editingMajor ? "Sửa Ngành Học" : "Thêm Ngành Học"}</h2>
             <form onSubmit={editingMajor ? handleUpdate : handleSubmit}>
               <div className="form-group">
                 <label>Tên ngành:</label>
@@ -3000,7 +3072,7 @@ const AdminPage = () => {
               </div>
               <div className="modal-buttons">
                 <button type="submit" className="submit-button">
-                  {editingMajor ? "Lưu" : "Thêm"}
+                  {editingMajor ? "Cập nhật" : "Thêm mới"}
                 </button>
                 <button
                   type="button"
@@ -3109,25 +3181,34 @@ const AdminPage = () => {
                   type="text"
                   name="key"
                   value={editingDataset ? editingDataset.key : newDataset.key}
-                  onChange={handleDatasetInputChange}
-                  className={datasetFormErrors.key ? "error" : ""}
+                  onChange={
+                    editingDataset
+                      ? handleDatasetEditChange
+                      : handleDatasetInputChange
+                  }
+                  required
                 />
                 {datasetFormErrors.key && (
-                  <span className="error-text">{datasetFormErrors.key}</span>
+                  <span className="error">{datasetFormErrors.key}</span>
                 )}
               </div>
               <div className="form-group">
                 <label>Value:</label>
-                <textarea
+                <input
+                  type="text"
                   name="value"
                   value={
                     editingDataset ? editingDataset.value : newDataset.value
                   }
-                  onChange={handleDatasetInputChange}
-                  className={datasetFormErrors.value ? "error" : ""}
+                  onChange={
+                    editingDataset
+                      ? handleDatasetEditChange
+                      : handleDatasetInputChange
+                  }
+                  required
                 />
                 {datasetFormErrors.value && (
-                  <span className="error-text">{datasetFormErrors.value}</span>
+                  <span className="error">{datasetFormErrors.value}</span>
                 )}
               </div>
               <div className="form-group">
@@ -3139,20 +3220,21 @@ const AdminPage = () => {
                       ? editingDataset.category
                       : newDataset.category
                   }
-                  onChange={handleDatasetInputChange}
-                  className={datasetFormErrors.category ? "error" : ""}
+                  onChange={
+                    editingDataset
+                      ? handleDatasetEditChange
+                      : handleDatasetInputChange
+                  }
+                  required
                 >
                   <option value="">Chọn category</option>
-                  <option value="general">General</option>
                   <option value="scholarship">Scholarship</option>
                   <option value="event">Event</option>
                   <option value="department">Department</option>
                   <option value="faq">FAQ</option>
                 </select>
                 {datasetFormErrors.category && (
-                  <span className="error-text">
-                    {datasetFormErrors.category}
-                  </span>
+                  <span className="error">{datasetFormErrors.category}</span>
                 )}
               </div>
               <div className="form-group">
@@ -3164,23 +3246,31 @@ const AdminPage = () => {
                       ? editingDataset.department
                       : newDataset.department
                   }
-                  onChange={handleDatasetInputChange}
+                  onChange={
+                    editingDataset
+                      ? handleDatasetEditChange
+                      : handleDatasetInputChange
+                  }
+                  required
                 >
-                  <option value="">Không có</option>
+                  <option value="">Chọn department</option>
                   {majors.map((major) => (
                     <option key={major._id} value={major._id}>
                       {major.name}
                     </option>
                   ))}
                 </select>
+                {datasetFormErrors.department && (
+                  <span className="error">{datasetFormErrors.department}</span>
+                )}
               </div>
-              <div className="modal-buttons">
-                <button type="submit" className="submit-button">
-                  {editingDataset ? "Lưu" : "Thêm"}
+              <div className="form-actions">
+                <button type="submit" className="btn btn-primary">
+                  {editingDataset ? "Cập nhật" : "Thêm mới"}
                 </button>
                 <button
                   type="button"
-                  className="cancel-button"
+                  className="btn btn-secondary"
                   onClick={() => {
                     setShowDatasetEditModal(false);
                     setEditingDataset(null);
@@ -3188,7 +3278,7 @@ const AdminPage = () => {
                       key: "",
                       value: "",
                       category: "",
-                      department: null,
+                      department: "",
                     });
                     setDatasetFormErrors({});
                   }}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
-import "./CoordinatorPage.css";
+
 import "../styles/theme.css";
 import Header from "../components/layout/Header";
 import NotificationList from "../components/notifications/NotificationList";
